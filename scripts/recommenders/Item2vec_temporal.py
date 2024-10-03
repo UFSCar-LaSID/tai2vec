@@ -80,7 +80,7 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['peak']) / (1024 ** 3)))
       
 class Item2vec_temp_model:
-    def __init__(self, embedding_dir, factors=128, w_size=-1, learning_rate=0.25, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=200):
+    def __init__(self, embedding_dir, factors=128, w_size=-1, learning_rate=0.25, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=200, time_exp=1):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -91,6 +91,7 @@ class Item2vec_temp_model:
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.batch_size = batch_size
+        self.time_exp = time_exp
 
         self.X_target = []
         self.X_context = []
@@ -360,7 +361,7 @@ class Item2vec_temp_model:
 
         #Define os callbacks
         memory_printing_callback = MemoryPrintingCallback()
-        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
+        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=40)
         
         self.model.fit(self._data_generator(batch_processing), 
                   steps_per_epoch=steps_per_epoch, 

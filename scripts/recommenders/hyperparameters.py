@@ -15,13 +15,13 @@ BPR_HYPERPARAMETERS = {
 
 ITEM2VEC_HYPERPARAMETERS = {
     #'factors': [128],
-    'w_size': [3, 5, 7],
-    'learning_rate': [0.25], #0.1, 0.25, 
+    'w_size': [-1],
+    'learning_rate': [0.025, 0.25], #0.1, 0.25, 
     'subsample': [0.001, 0.0001],
     #'negative_samples': [3],
-    'negative_exp': [-1, -0.75, 0.75, 1],
+    'negative_exp': [-1, -0.75, 0.75],
     #'batch_size': [2**16],
-    'epochs': [120], #150, 200
+    'epochs': [160], #150, 200
 }
 
 GEMSIM_HYPERPARAMETERS = {
@@ -35,13 +35,13 @@ GEMSIM_HYPERPARAMETERS = {
 
 ITEM2VEC_TEMP_HYPERPARAMETERS = {
     #'factors': [128],
-    #'w_size': [2, 3, 5, 7],
-    'learning_rate': [0.25], #0.1, 0.25, 
-    'subsample': [0.001],
+    'w_size': [-1],
+    'learning_rate': [0.025, 0.25], #0.1, 0.25, 
+    'subsample': [0.001, 0.0001],
     #'negative_samples': [3],
-    'negative_exp': [-0.5],
+    'negative_exp': [-1, -0.75, 0.75],
     #'batch_size': [2**16],
-    #'epochs': [100], #150, 200
+    'epochs': [160], #150, 200
     'time_exp': [0, 1, 2]
 }
 

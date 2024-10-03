@@ -315,7 +315,7 @@ class Item2vec_model:
 
         #Define os callbacks
         memory_printing_callback = MemoryPrintingCallback()
-        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
+        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=40)
         
         self.model.fit(self._data_generator(batch_processing), 
                   steps_per_epoch=steps_per_epoch, 
