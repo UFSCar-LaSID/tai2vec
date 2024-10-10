@@ -25,18 +25,49 @@ class DataRepr(object):
     
     def __init__(self, df):
         self.le_users = LabelEncoder()
-        self.le_users.fit(df['id_user'])
+        self.le_users.fit(df[kw.COLUMN_USER_ID])
         self.le_items = LabelEncoder()
-        self.le_items.fit(df['id_item'])
-        self.interaction_matrix = self.create_user_items_matrix(df)
+        self.le_items.fit(df[kw.COLUMN_ITEM_ID])
     
     def create_user_items_matrix(self, df):
-        data = df[kw.COLUMN_TIME_CUMSUM].to_list()
-        user_ind = self.le_users.transform(df['id_user'])
-        item_ind = self.le_items.transform(df['id_item'])
+        data = np.ones(len(df))
+        user_ind = self.le_users.transform(df[kw.COLUMN_USER_ID])
+        item_ind = self.le_items.transform(df[kw.COLUMN_ITEM_ID])
         n_users = len(self.le_users.classes_)
         n_items = len(self.le_items.classes_)
         return csr_matrix((data, (user_ind, item_ind)), shape=(n_users, n_items))
+    
+    def create_interaction_list(self, df):
+
+        df[kw.COLUMN_USER_ID] = self.le_users.transform(df[kw.COLUMN_USER_ID])
+        df[kw.COLUMN_ITEM_ID] = self.le_items.transform(df[kw.COLUMN_ITEM_ID])
+
+        if kw.COLUMN_DATETIME in df.columns:
+            sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
+        else:
+            sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_TIMESTAMP])
+
+        grouped_items = sorted_df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_ITEM_ID].agg(list)
+        return grouped_items.tolist()
+    
+    def create_weight_list(self, df):
+
+        if kw.COLUMN_TIME_CUMSUM not in df.columns:
+            raise Exception("Coluna Temporal Cumulativa não encontrada")
+
+        if kw.COLUMN_DATETIME in df.columns:
+            sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
+        else:
+            sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_TIMESTAMP])
+
+        grouped_items = sorted_df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_CUMSUM].agg(list)
+        return grouped_items.tolist()
+    
+    def get_n_user(self):
+        return len(self.le_users.classes_)
+    
+    def get_n_items(self):
+        return len(self.le_items.classes_)
     
     def get_user_index(self, user_id):
         return self.le_users.transform([user_id])[0]
@@ -44,26 +75,15 @@ class DataRepr(object):
     def get_item_index(self, item_id):
         return self.le_items.transform([item_id])[0]
     
-    def get_user_id(self, user_index):
-        return self.le_users.inverse_transform(user_index)
+    def get_item_id(self, item_index):
+        return self.le_items.inverse_transform(np.array(item_index))
     
     def get_item_id(self, item_index):
-        return self.le_items.inverse_transform(item_index)
+        return self.le_items.inverse_transform(np.array(item_index)) 
     
     def get_user_items_matrix(self):
         return self.interaction_matrix
     
-    def get_interaction_list(self):
-        
-        # Remove itens negativos
-        user_indices, item_indices = self.interaction_matrix.nonzero()
-        
-        # Agrupa os usuários e gera a representação densa
-        users, user_pos = np.unique(user_indices, return_index=True)
-        interaction_list = np.split(item_indices, user_pos[1:])
-        interaction_list = [list(items) for items in interaction_list]
-        
-        return interaction_list
 
 class MemoryPrintingCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
@@ -71,9 +91,9 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
       tf.print('\n GPU memory details [current: {} gb, peak: {} gb]'.format(
           float(gpu_dict['current']) / (1024 ** 3), 
           float(gpu_dict['peak']) / (1024 ** 3)))
-
+      
 class Item2vec_Temp_Cont_model:
-    def __init__(self, embedding_dir, factors=128, w_size=-1, learning_rate=0.25, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=5):
+    def __init__(self, embedding_dir, factors=128, w_size=-1, learning_rate=0.25, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=200):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -130,16 +150,23 @@ class Item2vec_Temp_Cont_model:
             df_group[kw.COLUMN_TIME_DIFF]  = df_group[kw.COLUMN_DATETIME] - df_group[kw.COLUMN_DATETIME].shift(1)
             df_group[kw.COLUMN_TIME_DIFF]  = df_group[kw.COLUMN_TIME_DIFF].fillna(pd.to_timedelta(0, unit='s'))
             df_group[kw.COLUMN_TIME_DIFF]  = df_group[kw.COLUMN_TIME_DIFF].astype('int64')/ 10**9
+
+            #Desconsidera interações que aconteceram em um pequeno intervalo de tempo
+            non_noise_diffs = df_group[df_group['timestamp_diff'] > 60]
             
             #Trata outliers para que eles não afetem tanto o resultdo final 
-            Q1 = df_group[kw.COLUMN_TIME_DIFF].quantile(0.25)
-            Q3 = df_group[kw.COLUMN_TIME_DIFF].quantile(0.75)
+            Q1 = non_noise_diffs[kw.COLUMN_TIME_DIFF].quantile(0.25)
+            Q3 = non_noise_diffs[kw.COLUMN_TIME_DIFF].quantile(0.75)
             IQR = Q3 - Q1
             
-            threshold = 3
+            threshold = 2
             df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].clip(upper=(Q3 + threshold * IQR))        
             df_group[kw.COLUMN_TIME_CUMSUM] = df_group[kw.COLUMN_TIME_DIFF].cumsum()
-            df_group[kw.COLUMN_TIME_CUMSUM] = scaler.fit_transform(df_group[[kw.COLUMN_TIME_CUMSUM]])
+            df_group[kw.COLUMN_MEAN] = non_noise_diffs[kw.COLUMN_TIME_DIFF].mean()
+            df_group[kw.COLUMN_STD] = non_noise_diffs[kw.COLUMN_TIME_DIFF].std()
+            df_group[kw.COLUMN_MEAN] = df_group[kw.COLUMN_MEAN].fillna(0)
+            df_group[kw.COLUMN_STD] = df_group[kw.COLUMN_STD].fillna(0)
+            #df_group[kw.COLUMN_TIME_CUMSUM] = scaler.fit_transform(df_group[[kw.COLUMN_TIME_CUMSUM]])
             
             return df_group
             
@@ -151,19 +178,16 @@ class Item2vec_Temp_Cont_model:
 
         return df
     
-    def _calculate_subsample_probs(self, item_freq):
-        
-        total_count = np.sum(item_freq)
-        freqs = np.array(item_freq)
-        z = freqs / total_count
-        self.subsample_probs = (np.sqrt(z/self.subsample_threshold) + 1) * (self.subsample_threshold/z)
-        
-    def _create_subsample_interactions(self, df, interactions):
-        rows, cols = interactions.nonzero()
-        mask = np.random.rand(len(cols)) <= self.subsample_probs[cols]
-        subsample_rows, subsample_cols, subsample_data = rows[mask], cols[mask], interactions.data[mask]
-        subsampled_interactions = csr_matrix((subsample_data, (subsample_rows, subsample_cols)), shape=interactions.shape)
-        return subsampled_interactions
+    def _subsample_items(self, df):
+
+        freq = df.groupby(kw.COLUMN_ITEM_ID).size()
+        n_interactions = len(df)
+        z = freq / n_interactions
+        keep_prob = (np.sqrt(z/self.subsample_threshold) + 1) * (self.subsample_threshold/z)
+        keep_prob = keep_prob.reindex(df[kw.COLUMN_ITEM_ID])
+        keep_prob.index = df.index
+        discarded_interactions = keep_prob < np.random.rand(n_interactions)
+        return df[~discarded_interactions].copy()
     
     def _cumulative_table(self, item_frequencies):
 
@@ -192,30 +216,69 @@ class Item2vec_Temp_Cont_model:
 
         return X_context
     
-    def _calculate_training_samples(self, interaction_list):
+    def _calculate_all_training_samples(self):
+
+        #Calcula o numero de passos para que o epoch atual termine de rodar
+        n_samples, n_interactions = self._calculate_positive_training_samples()
+        #Adiciona os passos negativos
+        self.negative_samples_size = (n_interactions * self.negative_samples)
+        return n_samples + self.negative_samples_size
+
+    def _calculate_positive_training_samples(self):
     
         result, n_iteractions = 0, 0
-        for user_id in range(interaction_list.shape[0]):
-            curr_user = interaction_list[user_id].nonzero()[1]
-            user_size = curr_user.size
-            if (user_size < 2):
+
+        for user_id in range(len(self.interaction_list)):
+
+            curr_user = self.interaction_list[user_id]
+            user_size = len(curr_user)
+
+            if (user_size < 3):
                 continue
+
             n_iteractions = n_iteractions + user_size
-            result = result + (user_size * (user_size-1))
+
+            # Muda o calculo realizado caso a janela de contexto seja infinita
+            if self.window_size == -1:
+                result = result + (user_size * (user_size-1))
+            else:
+                for i in range(user_size):
+                    start_idx = max(0, i - self.window_size)
+                    end_idx = min(user_size, i + self.window_size + 1)
+                    num_context_items = end_idx - start_idx
+                    result += num_context_items
 
         return result, n_iteractions
 
-    def _data_generator(self, interaction_list, batch_processing):   
+    def _calculate_weights(self, distances, mean, std): 
+
+        def z_scores(distances, mean, std):
+            if std == 0:
+                return np.zeros(len(distances))
+            return (distances - mean) / std
+        
+        z_score = z_scores(distances, mean, std)
+        z_score = np.clip(z_score, 0, 20)
+                
+        #print("Z-Score: ", np.round(z_score, 2))
+        weights = np.where(z_score == 0, 1, np.maximum(1 - np.power((z_score / (z_score + 1)), 3), 0.5))
+        #print("Weights: ", np.round(weights, 2))
+        #print("\n")
+        return np.round(weights, 2)
+    
+    def _data_generator(self, batch_processing):   
+
         while True:
 
             X_target, X_context, y, sample_weights = [], [], [], []
 
-            #Se o processamento em batch não for necessário, retorna os dados de uma vez, mudando apenas os exemplos negativos
+            #Se o processamento em batch não for necessário, retorna os dados de uma vez, mudando apenas o contexto
             if self.X_target != []:
-                for user_id in range(interaction_list.shape[0]):
-                    curr_user = interaction_list[user_id].nonzero()[1]
-                    user_size = curr_user.size
-                    if (user_size < 2):
+
+                for user_id in range(len(self.interaction_list)):
+                    curr_user = self.interaction_list[user_id]
+                    user_size = len(curr_user)
+                    if (user_size < 3):
                         continue
                     X_context.extend(np.tile(curr_user, user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)])
                     neg_X_context = []
@@ -226,25 +289,44 @@ class Item2vec_Temp_Cont_model:
                 yield (np.array(self.X_target), np.array(X_context)), np.array(self.y), np.array(self.sample_weights)
                 continue
 
-            for user_id in range(interaction_list.shape[0]):
+            for user_id in range(len(self.interaction_list)):
 
-                #Recebe os usuários da matriz de iteração um a um
-                curr_user = interaction_list[user_id].nonzero()[1]
-                weights = interaction_list[user_id, curr_user].data
-                user_size = curr_user.size
+                #Recebe a lista de itens do usuário atual
+                curr_user = np.array(self.interaction_list[user_id])
+                weights = np.array(self.weight_list[user_id])
+                #user_time_diff = self.time_diff[user_id]
+                mean = self.mean_list[user_id]
+                std = self.std_list[user_id]
+                user_size = len(curr_user)
 
-                if (user_size < 2):
+                if (user_size < 3):
                     continue
                     
                 # Amostras positivas
-                # Cria todas as combinações possíveis de pares de itens para o usuário atual
-                user_repeat = np.repeat(range(user_size), user_size-1)
-                user_comb = np.tile(range(user_size), user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)]  
+                if self.window_size == -1:
+                    user_repeat = np.repeat(range(user_size), user_size-1)
+                    user_comb = np.tile(range(user_size), user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)]  
 
-                X_target.extend(curr_user[user_repeat])
-                X_context.extend(curr_user[user_comb])
-                y.extend(np.ones(user_size * (user_size-1)))
-                sample_weights.extend(np.round(1 - abs(weights[user_repeat] - weights[user_comb]), 2))
+                    X_target.extend(curr_user[user_repeat])
+                    X_context.extend(curr_user[user_comb])
+                    y.extend(np.ones(user_size * (user_size-1)))
+                    time_diff = abs(weights[user_repeat] - weights[user_comb])
+                    #print("Iteracoes do usuário: ", weights)
+                    #print("Diferença de tempo", user_time_diff)
+                    #print("Mean: ", mean, "Std: ", std)
+                    sample_weights.extend(self._calculate_weights(time_diff, mean, std))
+                else:
+                    for i in range(user_size):
+                        #Define o início e o fim da janela de contexto
+                        start_idx = max(0, i - self.window_size)
+                        end_idx = min(user_size, i + self.window_size + 1)
+                        # Cria um array de indices e remove o alvo
+                        context_indices = np.arange(start_idx, end_idx)
+                        # Calcula os ids positivos
+                        X_target.extend(np.repeat(curr_user[i], len(context_indices)))
+                        X_context.extend(np.array(curr_user)[context_indices])
+                        y.extend(np.ones(len(context_indices)))
+                        sample_weights.extend(self._calculate_weights(abs(weights[i] - weights[context_indices]), mean, std))
 
                 neg_X_context = []
                 #Para cada treinamento positivo, retorna N negativos
@@ -255,13 +337,13 @@ class Item2vec_Temp_Cont_model:
                 X_context.extend(neg_X_context)
                 y.extend(np.zeros(len(neg_X_context)))
                 sample_weights.extend(np.ones(len(neg_X_context)))
-                                                                
+
                 #Treina o modelo em batch
                 if batch_processing == True:
                     num_batches = int(len(X_target) / self.batch_size)
                     if num_batches > 0:
                         for i in range(0, num_batches * self.batch_size, self.batch_size):
-                            yield (np.array(X_target[i:i + self.batch_size]), np.array(X_context[i:i + self.batch_size])), np.array(y[i:i + self.batch_size]), np.array(sample_weights[i:i + self.batch_size])
+                            yield (np.array(X_target[i:i + self.batch_size]), np.array(X_context[i:i + self.batch_size])), np.array(y[i:i + self.batch_size])
                         X_target = X_target[num_batches * self.batch_size:]
                         X_context = X_context[num_batches * self.batch_size:]
                         y = y[num_batches * self.batch_size:]
@@ -273,16 +355,28 @@ class Item2vec_Temp_Cont_model:
                 self.sample_weights = sample_weights
 
             yield (np.array(X_target), np.array(X_context)), np.array(y), np.array(sample_weights)
+
+    class SaveEmbeddingsCallback(tf.keras.callbacks.Callback):
+        def __init__(self, outer, save_interval=50):
+            super(Item2vec_Temp_Cont_model.SaveEmbeddingsCallback, self).__init__()
+            self.outer = outer 
+            self.save_interval = save_interval
+
+        def on_epoch_end(self, epoch, logs=None):
+            if (epoch + 1) % self.save_interval == 0:
+                self.outer._save_embeddings(epoch+1)
                 
-    def _save_embeddings(self):
-        os.makedirs(self.embedding_dir, exist_ok=True)
+    def _save_embeddings(self, epoch):
+        embedding_dir = self.embedding_dir + "_epochs-{}".format(epoch)
+        os.makedirs(embedding_dir, exist_ok=True)
         item_embeddings = self.model.get_layer('target_embedding').get_weights()[0]
-        np.save(os.path.join(self.embedding_dir, kw.FILE_ITEMS_EMBEDDINGS), item_embeddings)
-        pickle.dump(self.data_repr, open(os.path.join(self.embedding_dir, kw.FILE_SPARSE_REPR), 'wb'))
+        np.save(os.path.join(embedding_dir, kw.FILE_ITEMS_EMBEDDINGS), item_embeddings)
+        pickle.dump(self.data_repr, open(os.path.join(embedding_dir, kw.FILE_SPARSE_REPR), 'wb'))
 
     def fit(self, df):
-        
-        if os.path.exists(os.path.join(self.embedding_dir, kw.FILE_ITEMS_EMBEDDINGS)):
+
+        epochs_string = "_epochs-{}".format(self.epochs)
+        if os.path.exists(os.path.join(self.embedding_dir + epochs_string, kw.FILE_ITEMS_EMBEDDINGS)):
             return
 
         np.random.seed(kw.RANDOM_STATE)
@@ -292,44 +386,44 @@ class Item2vec_Temp_Cont_model:
             df = self.timestamp_cum(df)
         else:
             raise Exception("Timestamp column not found")
-                
+
         # Cria a representacao dos dados a partir do dataset
         self.data_repr = DataRepr(df)
         self.vocab_size = len(self.data_repr.le_items.classes_)
-        interaction_list = self.data_repr.get_user_items_matrix()
 
-        # Calcula a probabilidade de descarte de cada item
-        item_counts = np.diff(interaction_list.tocsc().indptr)
-        self._calculate_subsample_probs(item_counts)
-        subsample_interactions = self._create_subsample_interactions(df, interaction_list)
+        # Reduz o dataset com subsampling e cria a lista de interações e de pesos
+        df = self._subsample_items(df)
+        self.interaction_list = self.data_repr.create_interaction_list(df)
+        self.weight_list = self.data_repr.create_weight_list(df)
+        self.mean_list = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_MEAN].first().tolist()
+        self.std_list = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_STD].first().tolist()
+        self.time_diff = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_DIFF].agg(list)
 
-        #Cria a tabela cumulativa
-        self.cumulative_table = self._cumulative_table(item_counts)
-        
-        #Calcula o numero de passos para que o epoch atual termine de rodar
-        n_samples, n_interactions = self._calculate_training_samples(subsample_interactions)
-        #Adiciona os passos negativos
-        self.negative_samples_size = (n_interactions * self.negative_samples)
-        n_samples = n_samples + self.negative_samples_size
-        steps_per_epoch = np.ceil(n_samples/self.batch_size)
+        #Cria a tabela cumulativa que será utilizada para o negative sampling
+        item_freq = df.groupby(kw.COLUMN_ITEM_ID).size().values
+        self.cumulative_table = self._cumulative_table(item_freq)
 
-        #Caso a quantidade de amostras seja menor que o batch_size, não é necessário processamento em batch
-        batch_processing = steps_per_epoch != 1
+        #Calcula o número de samples, passos por época e se é necessário processamento em batch
+        n_samples = self._calculate_all_training_samples()
+        steps_per_epoch = (n_samples//self.batch_size) + 1
+        batch_processing = (steps_per_epoch != 1) or (self.window_size != -1)
+
+        print('Number of samples: {}'.format(n_samples))
+        print('Batch processing: {}'.format(batch_processing))
                 
         #Cria o modelo e inicia o treinamento
         self.model = self._build_model()
+
+        #Define os callbacks
         memory_printing_callback = MemoryPrintingCallback()
+        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=40)
         
-        self.model.fit(self._data_generator(subsample_interactions, batch_processing), 
+        self.model.fit(self._data_generator(batch_processing), 
                   steps_per_epoch=steps_per_epoch, 
                   epochs=self.epochs, 
                   shuffle=False, 
-                  verbose=2)
-        
-        #, callbacks=[memory_printing_callback]
-                        
-        self._save_embeddings()
-        
+                  verbose=2, callbacks=[epoch_callback])
+     
     def get_embeddings(self):
         embedding_layer = self.model.get_layer('target_embedding')
         return embedding_layer.get_weights()[0]

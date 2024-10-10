@@ -80,7 +80,7 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['peak']) / (1024 ** 3)))
       
 class Item2vec_temp_model:
-    def __init__(self, embedding_dir, factors=128, w_size=-1, learning_rate=0.25, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=200, time_exp=1):
+    def __init__(self, embedding_dir, factors=128, w_size=-1, learning_rate=0.25, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=160, time_exp=1):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -133,7 +133,7 @@ class Item2vec_temp_model:
             df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].fillna(pd.to_timedelta(0, unit='s'))
             df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].astype('int64')/ 10**9
 
-            non_noise_diffs = df_group[df_group['timestamp_diff'] > 300]
+            non_noise_diffs = df_group[df_group['timestamp_diff'] > 3600]
             df_group['Q1'] = non_noise_diffs['timestamp_diff'].quantile(0.25)
             df_group['Q3'] = non_noise_diffs['timestamp_diff'].quantile(0.75)
 
@@ -330,6 +330,8 @@ class Item2vec_temp_model:
         epochs_string = "_epochs-{}".format(self.epochs)
         if os.path.exists(os.path.join(self.embedding_dir + epochs_string, kw.FILE_ITEMS_EMBEDDINGS)):
             return
+        
+        print(self.embedding_dir)
 
         np.random.seed(kw.RANDOM_STATE)
         tf.random.set_seed(kw.RANDOM_STATE)
@@ -338,7 +340,7 @@ class Item2vec_temp_model:
             df = self.timestamp_diff(df)
         else:
             raise Exception("Timestamp column not found")
-
+        
         # Cria a representacao dos dados a partir do dataset
         self.data_repr = DataRepr(df)
         self.vocab_size = len(self.data_repr.le_items.classes_)
@@ -355,13 +357,16 @@ class Item2vec_temp_model:
         n_samples = self._calculate_all_training_samples()
         steps_per_epoch = (n_samples//self.batch_size) + 1
         batch_processing = (steps_per_epoch != 1) or (self.window_size != -1)
+
+        print('Number of samples: {}'.format(n_samples))
+        print('Batch processing: {}'.format(batch_processing))
                 
         #Cria o modelo e inicia o treinamento
         self.model = self._build_model()
 
         #Define os callbacks
         memory_printing_callback = MemoryPrintingCallback()
-        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=40)
+        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
         
         self.model.fit(self._data_generator(batch_processing), 
                   steps_per_epoch=steps_per_epoch, 

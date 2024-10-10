@@ -25,10 +25,10 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['DeliciousBookmarks']
+DATASETS = ['BestBuy']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy', 'Taobao', 'Events'
 
-RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc'] 
+RECOMMENDERS = ['TimeI2V_Cont'] 
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
@@ -52,10 +52,10 @@ for MODE in MODES:
             if kw.COLUMN_TIMESTAMP in df.columns:
                 df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
             elif kw.COLUMN_DATETIME in df.columns:
-                df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME])
+                df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME]).dt.floor('S')
             else:
                 raise ValueError('Coluna temporal não encontrada')
-            
+                        
             df_train = df.sort_values(by=kw.COLUMN_DATETIME).iloc[:int(len(df) * 0.8)]
             df_test = df[~df.index.isin(df_train.index)].copy()
             df_test = remove_cold_start(df_train, df_test)
