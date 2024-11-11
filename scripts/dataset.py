@@ -6,7 +6,7 @@ DATASETS_TABLE = pd.DataFrame(
     [[1,  'Anime Recommendations',     'E',         1.0],
      [2,  'BestBuy',                   'I',         1.0],
      [3,  'Book-Crossing',             'E',         1.0],
-     [4,  'CiaoDVD',                   'E',         1.0],
+     [4,  'CiaoDVD',                   'I',         1.0],
      [5,  'DeliciousBookmarks',        'I',         1.0],
      [6,  'Filmtrust',                 'E',         1.0],
      [7,  'Jester',                    'E',         1.0],
@@ -33,7 +33,7 @@ class Dataset(object):
         if kw.COLUMN_RATING in self.df.columns:
             explicit_ratings = self.df[kw.COLUMN_RATING]!=-1
             min_max = self.df[explicit_ratings][kw.COLUMN_RATING].apply(['min', 'max'])
-            mean_rating = min_max.loc['min'] + (min_max.loc['max']-min_max.loc['min'])/2            
+            mean_rating = min_max.loc['min'] + (min_max.loc['max']-min_max.loc['min'])/2 + 1  
             self.df = self.df[(self.df[kw.COLUMN_RATING]>=mean_rating)|(self.df[kw.COLUMN_RATING]==-1)]
     
     def get_name(self):

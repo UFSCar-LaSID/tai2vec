@@ -14,7 +14,7 @@ from sklearn.preprocessing import MinMaxScaler
 import warnings
 warnings.filterwarnings('once')
 
-best_column = 'NDCG@10'
+best_column = 'NDCG@15'
 metric_type = ["Prec", "Rec", "F1_Score", "Hit_Rate", "NDCG"]
 top_k = [3, 5, 10, 20]
 
@@ -111,3 +111,4 @@ for dataset_name in main_file:
     figure_name = dataset_name + "_" + curr_metric + ".html"
     fig.write_html(os.path.join("figures", figure_name)) 
     fig.show()
+    

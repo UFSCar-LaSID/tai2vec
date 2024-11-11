@@ -16,9 +16,9 @@ class ItemSim(object):
         
         n_items = self.embeddings.shape[0]
         
-        items_per_batch = int(kw.MEM_SIZE_LIMIT / (8 * n_items))
-        #if items_per_batch == 0:
-        #    items_per_batch = kw.MEM_SIZE_LIMIT
+        items_per_batch = kw.MEM_SIZE_LIMIT // (8 * n_items)
+        if items_per_batch == 0:
+            items_per_batch = kw.MEM_SIZE_LIMIT
 
         self.item_item_sim = pd.DataFrame()        
         for i in range(0, n_items, items_per_batch):

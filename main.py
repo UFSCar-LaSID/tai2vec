@@ -2,6 +2,7 @@ from sklearn.model_selection import KFold, ParameterGrid
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import pandas as pd
 import scripts as kw
 from scripts.dataset import get_datasets
@@ -11,6 +12,7 @@ from scripts.recsys import remove_single_interactions, remove_cold_start
 from scripts.metrics import Metrics
 
 import tensorflow as tf
+
 
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
@@ -25,7 +27,7 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['BestBuy']
+DATASETS = ['CiaoDVD']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy', 'Taobao', 'Events'
 
 RECOMMENDERS = ['TimeI2V_Cont'] 
@@ -34,10 +36,10 @@ RECOMMENDERS = ['TimeI2V_Cont']
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
 # 'Item2Vec_itemSim', 'Gemsim_itemSim', 'TimeI2V_Disc', 'TimeI2V_Cont'
 
-MODES = ['Recommend', 'Evaluate'] 
+MODES = ['Recommend', 'Evaluate']                                   
 # 'Recommend', 'Evaluate'
 
-for MODE in MODES:
+for MODE in MODES:                                     
 
     if (MODE == 'Recommend'):
 
@@ -52,7 +54,7 @@ for MODE in MODES:
             if kw.COLUMN_TIMESTAMP in df.columns:
                 df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
             elif kw.COLUMN_DATETIME in df.columns:
-                df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME]).dt.floor('S')
+                df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME]).dt.floor('s')
             else:
                 raise ValueError('Coluna temporal não encontrada')
                         
@@ -111,5 +113,6 @@ for MODE in MODES:
 
                 model = Metrics(kw.N_EVAL)
                 recomendation_filepath = get_recomendation_filepath(dataset_name, recommender_name)
+                print(recomendation_filepath)
                 model.add_metrics(recomendation_filepath)
                 model.save_metrics(dataset_name, recommender_name)

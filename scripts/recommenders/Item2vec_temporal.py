@@ -18,7 +18,7 @@ import time
 import tensorflow as tf
 
 import keras
-from keras import layers, Model, Input, regularizers, initializers
+from keras import layers, Model, Input, regularizers, initializers, callbacks
 from keras.optimizers import Adam # type: ignore
 
 class DataRepr(object):
@@ -80,7 +80,7 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['peak']) / (1024 ** 3)))
       
 class Item2vec_temp_model:
-    def __init__(self, embedding_dir, factors=128, w_size=-1, learning_rate=0.25, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=160, time_exp=1):
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=160, time_exp=1, min_time_diff=300):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -89,9 +89,11 @@ class Item2vec_temp_model:
         self.negative_samples = negative_samples
         self.negative_expoent = negative_exp
         self.learning_rate = learning_rate
+        self.min_learning_rate = min_learning_rate 
         self.epochs = epochs
         self.batch_size = batch_size
         self.time_exp = time_exp
+        self.min_time_diff = min_time_diff
 
         self.X_target = []
         self.X_context = []
@@ -108,8 +110,11 @@ class Item2vec_temp_model:
         target_item = Input(shape=(1,), name='target_item')
         context_item = Input(shape=(1,), name='context_item')
 
-        target_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='target_embedding', embeddings_initializer = initializers.RandomUniform(seed=kw.RANDOM_STATE))
-        context_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='context_embedding', embeddings_initializer = initializers.RandomUniform(seed=kw.RANDOM_STATE))
+        initializer = initializers.RandomUniform(seed=kw.RANDOM_STATE)
+        #initializer = initializers.RandomNormal(stddev=0.1, seed=kw.RANDOM_STATE)
+
+        target_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='target_embedding', embeddings_initializer = initializer)
+        context_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='context_embedding', embeddings_initializer = initializer)
 
         embedding_target = target_embedding_lookup(target_item)
         embedding_context = context_embedding_lookup(context_item)
@@ -118,8 +123,11 @@ class Item2vec_temp_model:
         reshaped_vector = layers.Reshape((1,))(merged_vector)
         prediction = layers.Activation('sigmoid')(reshaped_vector)
 
+        #lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+        #    initial_learning_rate = self.learning_rate, decay_steps = self.steps_per_epoch, decay_rate=0.96, staircase=True)
+        
         model = Model(inputs=[target_item, context_item], outputs=prediction)
-        model.compile(optimizer=Adam(learning_rate=self.learning_rate), loss='binary_crossentropy')
+        model.compile(optimizer=Adam(learning_rate= self.learning_rate), loss='binary_crossentropy')
 
         return model
     
@@ -133,7 +141,7 @@ class Item2vec_temp_model:
             df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].fillna(pd.to_timedelta(0, unit='s'))
             df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].astype('int64')/ 10**9
 
-            non_noise_diffs = df_group[df_group['timestamp_diff'] > 3600]
+            non_noise_diffs = df_group[df_group['timestamp_diff'] > self.min_time_diff]
             df_group['Q1'] = non_noise_diffs['timestamp_diff'].quantile(0.25)
             df_group['Q3'] = non_noise_diffs['timestamp_diff'].quantile(0.75)
 
@@ -256,7 +264,10 @@ class Item2vec_temp_model:
                 yield ((np.array(self.X_target), np.array(X_context)), np.array(self.y))
                 continue
 
-            for user_id in range(len(self.interaction_list)):
+            arr = np.arange(len(self.interaction_list))
+            np.random.shuffle(arr)
+
+            for user_id in arr:
 
                 #Recebe a lista de itens do usuário atual
                 curr_user = self.interaction_list[user_id]
@@ -331,8 +342,6 @@ class Item2vec_temp_model:
         if os.path.exists(os.path.join(self.embedding_dir + epochs_string, kw.FILE_ITEMS_EMBEDDINGS)):
             return
         
-        print(self.embedding_dir)
-
         np.random.seed(kw.RANDOM_STATE)
         tf.random.set_seed(kw.RANDOM_STATE)
 
@@ -357,6 +366,7 @@ class Item2vec_temp_model:
         n_samples = self._calculate_all_training_samples()
         steps_per_epoch = (n_samples//self.batch_size) + 1
         batch_processing = (steps_per_epoch != 1) or (self.window_size != -1)
+        batch_processing = True
 
         print('Number of samples: {}'.format(n_samples))
         print('Batch processing: {}'.format(batch_processing))
@@ -367,12 +377,13 @@ class Item2vec_temp_model:
         #Define os callbacks
         memory_printing_callback = MemoryPrintingCallback()
         epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
+        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
         
         self.model.fit(self._data_generator(batch_processing), 
                   steps_per_epoch=steps_per_epoch, 
                   epochs=self.epochs, 
                   shuffle=False, 
-                  verbose=2, callbacks=[epoch_callback])
+                  verbose=2, callbacks=[epoch_callback, reduce_lr])
      
     def get_embeddings(self):
         embedding_layer = self.model.get_layer('target_embedding')

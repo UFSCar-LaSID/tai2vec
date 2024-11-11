@@ -42,7 +42,7 @@ COLUMN_ITEM_ID = 'id_item'
 COLUMN_ITEM_NAME = 'name_item'
 COLUMN_USER_ID = 'id_user'
 COLUMN_USER_NAME = 'name_user'
-COLUMN_RATING = 'interaction'
+COLUMN_RATING = 'rating'
 COLUMN_RANK = 'rank'
 
 # Colunas do arquivo de log
@@ -53,6 +53,7 @@ LOG_COLUMN_RECOMMENDATIONS = 'recommendations'
 # Colunas para a implementação temporal
 COLUMN_TIMESTAMP = 'timestamp'
 COLUMN_TIME_CUMSUM = 'timestamp_cumsum'
+COLUMN_TIME_CUMSUM_NORM = 'timestamp_cumsum_norm'
 COLUMN_DATETIME = 'datetime'
 COLUMN_TIME_DIFF = 'timestamp_diff' 
 COLUMN_MEAN = 'mean'
