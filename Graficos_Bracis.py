@@ -18,8 +18,10 @@ best_column = 'NDCG@15'
 metric_type = ["Prec", "Rec", "F1_Score", "Hit_Rate", "NDCG"]
 top_k = [3, 5, 10, 20]
 
-main_path = "results/metrics"
+main_path = "results/metrics/test"
 main_file = os.listdir(main_path)
+
+print(main_file)
 
 dataframes = []
 
@@ -28,7 +30,7 @@ for dataset_name in main_file:
     recommender_files = os.listdir(os.path.join(main_path, dataset_name))
     for recommender_name in recommender_files:
                 
-        metrics_path = os.path.join("results", "metrics", dataset_name, recommender_name, "metrics.csv")
+        metrics_path = os.path.join(main_path, dataset_name, recommender_name, "metrics.csv")
         metrics_aux = pd.read_csv(metrics_path, sep=';')
         
         metrics_aux.insert(0,'Recommender','')
@@ -62,9 +64,6 @@ def function_1(x):
     return x
 
 curr_metric = "NDCG"
-
-main_path = "results/metrics"
-main_file = os.listdir(main_path)
 
 for dataset_name in main_file:
     

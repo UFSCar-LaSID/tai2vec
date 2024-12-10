@@ -87,7 +87,7 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['peak']) / (1024 ** 3)))
       
 class Item2vec_Temp_Cont_model:
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, min_weight = 0.3, curve_exp = 2, epochs=200, min_time_diff=60, weight_floor=0.3):
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, min_weight = 0.3, curve_exp = 2, epochs=120, min_time_diff=60, weight_floor=0.3, lr_decay=0.5):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -103,6 +103,7 @@ class Item2vec_Temp_Cont_model:
         self.weight_floor = weight_floor
         self.curve_exp = curve_exp
         self.min_time_diff = min_time_diff
+        self.lr_decay = lr_decay
 
         self.X_target = []
         self.X_context = []
@@ -172,6 +173,10 @@ class Item2vec_Temp_Cont_model:
             df_group[kw.COLUMN_MEAN] = df_group[kw.COLUMN_MEAN].fillna(0)
             df_group[kw.COLUMN_STD] = df_group[kw.COLUMN_STD].fillna(0)
             df_group[kw.COLUMN_TIME_CUMSUM_NORM] = scaler.fit_transform(df_group[[kw.COLUMN_TIME_CUMSUM]])
+            #df_group['scale'] = scaler.scale_
+            #print(df_group[kw.COLUMN_TIME_CUMSUM_NORM])
+            #print("Escala dos usuários", scaler.scale_)
+            #print(df_group['scale'])
             
             return df_group
             
@@ -312,6 +317,7 @@ class Item2vec_Temp_Cont_model:
                     
                 # Amostras positivas
                 if self.window_size == -1:
+                    
                     user_repeat = np.repeat(range(user_size), user_size-1)
                     user_comb = np.tile(range(user_size), user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)]  
 
@@ -389,7 +395,12 @@ class Item2vec_Temp_Cont_model:
                 self.outer._save_embeddings(epoch+1)
                 
     def _save_embeddings(self, epoch):
-        embedding_dir = self.embedding_dir + "_epochs-{}".format(epoch)
+
+        if (self.embedding_dir.split("\\")[2] == 'validation'):
+            embedding_dir = self.embedding_dir + "@epochs={}".format(epoch)
+        else:
+            embedding_dir = self.embedding_dir
+
         os.makedirs(embedding_dir, exist_ok=True)
         item_embeddings = self.model.get_layer('target_embedding').get_weights()[0]
         np.save(os.path.join(embedding_dir, kw.FILE_ITEMS_EMBEDDINGS), item_embeddings)
@@ -397,7 +408,7 @@ class Item2vec_Temp_Cont_model:
 
     def fit(self, df):
 
-        epochs_string = "_epochs-{}".format(self.epochs)
+        epochs_string = "@epochs={}".format(self.epochs)
         if os.path.exists(os.path.join(self.embedding_dir + epochs_string, kw.FILE_ITEMS_EMBEDDINGS)):
             return
         
@@ -442,7 +453,7 @@ class Item2vec_Temp_Cont_model:
         #Define os callbacks
         memory_printing_callback = MemoryPrintingCallback()
         epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
-        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
+        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=10, min_lr=self.min_learning_rate, cooldown=0, verbose=1)
         
         self.model.fit(self._data_generator(batch_processing), 
                   steps_per_epoch=self.steps_per_epoch, 

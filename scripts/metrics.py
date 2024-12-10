@@ -45,7 +45,7 @@ class Metrics:
     #Gera metricas a partir do arquivo de recomendações a partir do filepath dado, concatena o resultado no dataframe final
     def add_metrics(self, recomendation_filepath):
 
-        for parameters in tqdm(os.listdir(recomendation_filepath)):    
+        for parameters in tqdm(os.listdir(recomendation_filepath)):
                 
             data = pd.read_csv(
                 os.path.join(recomendation_filepath, parameters, 'recommendations.csv'), 
@@ -81,8 +81,10 @@ class Metrics:
             self.result_df.loc[len(self.result_df)] = [parameters] + metrics.tolist()
 
 
-    def save_metrics(self, dataset_name, recommender_name):
-        filedir = os.path.join('results', 'metrics', dataset_name, recommender_name)
-        os.makedirs(filedir, exist_ok=True)
-        filepath = os.path.join(filedir, 'metrics.csv')
+    def save_metrics(self, metrics_filepath):
+        os.makedirs(metrics_filepath, exist_ok=True)
+        filepath = os.path.join(metrics_filepath, 'metrics.csv')
         self.result_df.to_csv(filepath, sep=';', index=False)
+
+    def get_best_parameters(self, metric):
+        return self.result_df.loc[self.result_df[metric].idxmax()]['Parameters']

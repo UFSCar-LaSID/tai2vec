@@ -6,35 +6,45 @@ import scripts as kw
 MAIN_FOLDER = 'results'
 
 def _dict_to_str(dictionary):
-    return '_'.join(['{}-{}'.format(k,v) for k, v in sorted(dictionary.items())])
+    return '@'.join(['{}={}'.format(k,v) for k, v in sorted(dictionary.items())])
 
-def get_embeddings_filepath(dataset_name, recommender_name, parameters):
-    parameters_string = _dict_to_str(parameters)
-    filepath = os.path.join(MAIN_FOLDER, 'embeddings', dataset_name, recommender_name, parameters_string)
-    #os.makedirs(filepath, exist_ok=True)
+def str_to_dict(string):
+    def convert_value(value):
+        return int(value) if value.isdigit() else float(value)
+
+    return {key: convert_value(value) for key, value in (item.split('=') for item in string.split('@'))}
+
+
+def get_embeddings_filepath(file_type, dataset_name, recommender_name, parameters):
+    if isinstance(parameters, dict):
+        parameters = _dict_to_str(parameters)
+    filepath = os.path.join(MAIN_FOLDER, 'embeddings', file_type, dataset_name, recommender_name, parameters)
     return filepath
 
-def get_recomendation_filepath(dataset_name, recommender_name):
-    filepath = os.path.join(MAIN_FOLDER, 'recommendations', dataset_name, recommender_name)
-    #os.makedirs(filepath, exist_ok=True)
+def get_recomendation_filepath(file_type, dataset_name, recommender_name):
+    filepath = os.path.join(MAIN_FOLDER, 'recommendations', file_type, dataset_name, recommender_name)
     return filepath
 
-def get_all_embeddings_filepath(dataset_name, recommender_name):
+def get_metrics_filepath(file_type, dataset_name, recommender_name):
+    filepath = os.path.join(MAIN_FOLDER, 'metrics', file_type, dataset_name, recommender_name)
+    return filepath
+
+def get_all_embeddings_filepath(file_type, dataset_name, recommender_name, embeddings_parameters='all'):
 
     files_path = []
     parameters_string = []
-
-    main_path = os.path.join(MAIN_FOLDER, 'embeddings', dataset_name, recommender_name)
+    
+    main_path = os.path.join(MAIN_FOLDER, 'embeddings', file_type, dataset_name, recommender_name)
     for curr_file in os.listdir(main_path):
         files_path.append(os.path.join(main_path, curr_file))
         parameters_string.append(curr_file)
 
     return files_path, parameters_string
 
-def log_recommendations(dataset_name, recommender_name, parameters_string, df_test, recommendations):
+def log_recommendations(recomendation_filepath, parameters_string, df_test, recommendations):
     if isinstance(parameters_string, dict):
         parameters_string = _dict_to_str(parameters_string)
-    filedir = os.path.join(MAIN_FOLDER, 'recommendations', dataset_name, recommender_name, parameters_string)
+    filedir = os.path.join(recomendation_filepath, parameters_string)
     os.makedirs(filedir, exist_ok=True)
     filepath = os.path.join(filedir, 'recommendations.csv')
     user_items = df_test.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_ITEM_ID].apply(lambda x: list(x))

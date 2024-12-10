@@ -60,6 +60,10 @@ COLUMN_MEAN = 'mean'
 COLUMN_STD = 'std'
 COLUMN_THRESHOLD = 'threshold'
 
+#Tipo de recomendação
+VALIDATION = 'validation'
+TEST = 'test'
+
 # Infos da recomendação
 TOP_N = 25 # Não faço ideia se está sendo usado e tenho medo de remover
 

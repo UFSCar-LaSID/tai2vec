@@ -80,7 +80,7 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['peak']) / (1024 ** 3)))
       
 class Item2vec_temp_model:
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=160, time_exp=1, min_time_diff=300):
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=120, time_exp=1, min_time_diff=300, lr_decay=0.5):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -94,6 +94,7 @@ class Item2vec_temp_model:
         self.batch_size = batch_size
         self.time_exp = time_exp
         self.min_time_diff = min_time_diff
+        self.lr_decay = lr_decay
 
         self.X_target = []
         self.X_context = []
@@ -330,7 +331,12 @@ class Item2vec_temp_model:
                 self.outer._save_embeddings(epoch+1)
                 
     def _save_embeddings(self, epoch):
-        embedding_dir = self.embedding_dir + "_epochs-{}".format(epoch)
+
+        if (self.embedding_dir.split("\\")[2] == 'validation'):
+            embedding_dir = self.embedding_dir + "@epochs={}".format(epoch)
+        else:
+            embedding_dir = self.embedding_dir
+
         os.makedirs(embedding_dir, exist_ok=True)
         item_embeddings = self.model.get_layer('target_embedding').get_weights()[0]
         np.save(os.path.join(embedding_dir, kw.FILE_ITEMS_EMBEDDINGS), item_embeddings)
@@ -338,7 +344,7 @@ class Item2vec_temp_model:
 
     def fit(self, df):
 
-        epochs_string = "_epochs-{}".format(self.epochs)
+        epochs_string = "@epochs={}".format(self.epochs)
         if os.path.exists(os.path.join(self.embedding_dir + epochs_string, kw.FILE_ITEMS_EMBEDDINGS)):
             return
         
@@ -377,7 +383,7 @@ class Item2vec_temp_model:
         #Define os callbacks
         memory_printing_callback = MemoryPrintingCallback()
         epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
-        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
+        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=5, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
         
         self.model.fit(self._data_generator(batch_processing), 
                   steps_per_epoch=steps_per_epoch, 

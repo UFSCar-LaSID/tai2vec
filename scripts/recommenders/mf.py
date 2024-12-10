@@ -55,7 +55,6 @@ class ImplicitRecommender(object):
         if not os.path.exists(os.path.join(self.embeddings_filepath, kw.FILE_ITEMS_EMBEDDINGS)):
             self._save_embeddings()
 
-
     def recommend(self, df_test):
         userid = df_test[kw.COLUMN_USER_ID].unique()
         users_sparse_index = self.sparse_repr.get_user_index(userid)        

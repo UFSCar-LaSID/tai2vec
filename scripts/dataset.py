@@ -14,7 +14,7 @@ DATASETS_TABLE = pd.DataFrame(
      [9,  'Last.FM - Tagged',          'I',         1.0],
      [10, 'LibimSeTi',                 'E',         1.0],
      [11, 'MovieLens',                 'E',         1.0],
-     [12, 'NetflixPrize',              'E',         1.0],
+     [12, 'NetflixPrize',              'E',         0.05],
      [13, 'RetailRocket-All',          'I',         1.0],
      [14, 'RetailRocket-Transactions', 'I',         1.0],
      [15, 'Taobao',                    'I',         1.0],
