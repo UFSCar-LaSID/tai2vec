@@ -16,7 +16,8 @@ class ItemSim(object):
         
         n_items = self.embeddings.shape[0]
         
-        items_per_batch = kw.MEM_SIZE_LIMIT // (8 * n_items)
+        items_per_batch = kw.MEM_SIZE_LIMIT
+
         if items_per_batch == 0:
             items_per_batch = kw.MEM_SIZE_LIMIT
 
@@ -57,9 +58,5 @@ class ItemSim(object):
         
         recommendations[kw.COLUMN_RANK] = np.concatenate(recommendations.groupby(kw.COLUMN_USER_ID).size().sort_index(ascending=True).apply(lambda x:np.arange(1, x+1)).values)
         recommendations = recommendations.rename(columns={'neighbor': kw.COLUMN_ITEM_ID})[[kw.COLUMN_USER_ID, kw.COLUMN_ITEM_ID, "rank"]].reset_index(drop=True)
-        recommendations = recommendations.astype({
-            kw.COLUMN_ITEM_ID: 'int64',
-            kw.COLUMN_USER_ID: 'int64'
-        })
 
         return recommendations

@@ -21,6 +21,7 @@ import keras
 from keras import layers, Model, Input, regularizers, initializers, callbacks
 from keras.optimizers import Adam # type: ignore
 
+
 class DataRepr(object):
     
     def __init__(self, df):
@@ -80,7 +81,7 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['peak']) / (1024 ** 3)))
       
 class Item2vec_temp_aug_model:
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=120, time_exp=1, min_time_diff=300, lr_decay=0.5):
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=160, time_exp=1, min_time_diff=300, lr_decay=0.5):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -105,33 +106,43 @@ class Item2vec_temp_aug_model:
         self.subsample_probs = None
         self.model = None
         self.cumulative_table = None
+
+    class Item2Vec(tf.keras.Model):
+        def __init__(self, embedding_size, vocab_size):
+            super(Item2vec_temp_aug_model.Item2Vec, self).__init__()
+            init_width = 0.5 / embedding_size
+            initializer = initializers.RandomUniform(minval=-init_width, maxval=init_width, seed=kw.RANDOM_STATE)
+            self.target_embedding = layers.Embedding(vocab_size, embedding_size, name='target_embedding', embeddings_initializer=initializer)
+            self.context_embedding = layers.Embedding(vocab_size, embedding_size, name='context_embedding', embeddings_initializer=initializer)
     
-    def _build_model(self):
+        def call(self, inputs):
 
-        target_item = Input(shape=(1,), name='target_item')
-        context_item = Input(shape=(1,), name='context_item')
+            # target:  (batch_size, 1)
+            # context: (batch_size, negative_sampling+1)
+            target_item, context_item = inputs
 
-        initializer = initializers.RandomUniform(seed=kw.RANDOM_STATE)
-        #initializer = initializers.RandomNormal(stddev=0.1, seed=kw.RANDOM_STATE)
+            if len(target_item.shape) == 2:
+                target_item = tf.squeeze(target_item, axis=1)
 
-        target_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='target_embedding', embeddings_initializer = initializer)
-        context_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='context_embedding', embeddings_initializer = initializer)
+            # target_embedding:  (batch_size, embedding_size)
+            # context_embedding: (batch_size, negative_sampling+1, embedding_size)
+            target_embedding = self.target_embedding(target_item)
+            context_embedding = self.context_embedding(context_item)
 
-        embedding_target = target_embedding_lookup(target_item)
-        embedding_context = context_embedding_lookup(context_item)
-
-        merged_vector = layers.dot([embedding_target, embedding_context], axes=-1)
-        reshaped_vector = layers.Reshape((1,))(merged_vector)
-        prediction = layers.Activation('sigmoid')(reshaped_vector)
-
-        #lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        #    initial_learning_rate = self.learning_rate, decay_steps = self.steps_per_epoch, decay_rate=0.96, staircase=True)
-        
-        model = Model(inputs=[target_item, context_item], outputs=prediction)
-        model.compile(optimizer=Adam(learning_rate= self.learning_rate), loss='binary_crossentropy')
-
-        return model
+            # dots: (batch_size, negative_sampling+1)
+            dots = tf.einsum('be,bce->bc', target_embedding, context_embedding)
+            return dots
     
+    class SaveEmbeddingsCallback(tf.keras.callbacks.Callback):
+        def __init__(self, outer, save_interval=50):
+            super(Item2vec_temp_aug_model.SaveEmbeddingsCallback, self).__init__()
+            self.outer = outer 
+            self.save_interval = save_interval
+
+        def on_epoch_end(self, epoch, logs=None):
+            if (epoch + 1) % self.save_interval == 0:
+                self.outer._save_embeddings(epoch+1)
+
     def timestamp_diff(self, df):
 
         #Calcula a diferença de tempo entre a iteração atual e a passada, por usuário
@@ -157,15 +168,8 @@ class Item2vec_temp_aug_model:
         df = df.groupby(kw.COLUMN_USER_ID, group_keys=False).apply(calc_diff).reset_index(drop=True)
         df[kw.COLUMN_THRESHOLD] = df['Q3'] + ((self.time_exp) * (df['Q3'] - df['Q1']))
 
-        # Calcula o limite para a divisão do usuário
-        #df[kw.COLUMN_MEAN] = df[kw.COLUMN_TIME_DIFF].groupby(df[kw.COLUMN_USER_ID]).transform('mean').round()
-        #df[kw.COLUMN_STD] = df[kw.COLUMN_TIME_DIFF].groupby(df[kw.COLUMN_USER_ID]).transform('std').round()
-        #df[kw.COLUMN_THRESHOLD] = df[kw.COLUMN_MEAN] + df[kw.COLUMN_STD] * self.time_exp
-        
         df['mask'] = df[kw.COLUMN_TIME_DIFF] >= df[kw.COLUMN_THRESHOLD]
         df['increment'] = df.groupby(kw.COLUMN_USER_ID)['mask'].cumsum()
-        #df['old_user_id'] = df[kw.COLUMN_USER_ID]
-        #df[kw.COLUMN_USER_ID] = df.groupby([kw.COLUMN_USER_ID, 'increment']).ngroup()
 
         df.drop(columns=['mask'], inplace=True)
 
@@ -195,131 +199,100 @@ class Item2vec_temp_aug_model:
         cum_table = np.cumsum(probabilities)
         return (cum_table / cum_table[-1])
     
-    def _negative_examples(self, curr_user, curr_item):
+    def _negative_examples(self, curr_user, negative_pairs):
 
-        raw_samps = np.random.rand(self.negative_samples,)
+        raw_samps = np.random.rand(negative_pairs,)
         ss = np.searchsorted(self.cumulative_table, raw_samps)
         pos_mask = (ss == np.take(curr_user, ss, mode='clip'))
         X_context = ss[~pos_mask]
 
-        while len(X_context) < self.negative_samples:
-            extra_sample = np.searchsorted(self.cumulative_table, np.random.rand(1,))
-            if extra_sample != curr_user[curr_item]:
-                X_context = np.concatenate((X_context, extra_sample))
+        while len(X_context) < (negative_pairs):
+            random = np.searchsorted(self.cumulative_table, np.random.rand(1,))
+            if random not in curr_user:
+                X_context = np.concatenate((X_context, random))
 
         return X_context
-    
-    def _calculate_all_training_samples(self):
 
-        #Calcula o numero de passos para que o epoch atual termine de rodar
-        n_samples, n_interactions = self._calculate_positive_training_samples()
-        #Adiciona os passos negativos
-        self.negative_samples_size = (n_interactions * self.negative_samples)
-        return n_samples + self.negative_samples_size
+    def _generate_positive_data(self):
 
-    def _calculate_positive_training_samples(self):
-    
-        result, n_iteractions = 0, 0
+        X_target, X_context, sample_weights = [], [], []
 
-        for user_id in range(len(self.interaction_list)):
+        arr = np.arange(len(self.interaction_list))
+        np.random.shuffle(arr)
 
-            curr_user = self.interaction_list[user_id]
+        for user_id in arr:
+
+            X_target_aux, X_context_aux = [], []
+
+            #Recebe a lista de itens do usuário atual
+            user_time_groups = np.array(self.time_groups[user_id])
+            curr_user = np.array(self.interaction_list[user_id])
             user_size = len(curr_user)
-
+            
             if (user_size < 2):
                 continue
-
-            n_iteractions = n_iteractions + user_size
-
-            # Muda o calculo realizado caso a janela de contexto seja infinita
+                
+            # Amostras positivas
             if self.window_size == -1:
-                result = result + (user_size * (user_size-1))
+                user_repeat = np.repeat(range(user_size), user_size-1)
+                user_comb = np.tile(range(user_size), user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)]  
+
+                X_target_aux.extend(curr_user[user_repeat])
+                X_context_aux.extend(curr_user[user_comb])
+                sample_values = np.where((user_time_groups[user_repeat] - user_time_groups[user_comb]) == 0, 2, 1)
+                sample_weights.extend(sample_values)
             else:
                 for i in range(user_size):
+                    #Define o início e o fim da janela de contexto
                     start_idx = max(0, i - self.window_size)
                     end_idx = min(user_size, i + self.window_size + 1)
-                    num_context_items = end_idx - start_idx
-                    result += num_context_items
+                    # Cria um array de indices e remove o alvo
+                    context_indices = np.arange(start_idx, end_idx)
+                    # Calcula os ids positivos
+                    X_target_aux.extend(np.repeat(curr_user[i], len(context_indices)))
+                    X_context_aux.extend(np.array(curr_user)[context_indices])
+                    sample_values = np.where((user_time_groups[i] - user_time_groups[context_indices]) == 0, 2, 1)
+                    sample_weights.extend(sample_values)
 
-        return result, n_iteractions
+            X_target.extend(X_target_aux)
+            X_context.extend(X_context_aux)
 
-    def _data_generator(self, batch_processing):   
+        return np.array(X_target), np.array(X_context), np.array(sample_weights)
+            
+    @tf.function
+    def _generate_batches(self, target_items, positive_contexts, weights):
 
-        while True:
+        batch_size = tf.shape(target_items)[0]
+        
+        #Seleciona os itens negativos
+        random_samples = tf.random.uniform(shape=(batch_size * self.negative_samples,), minval=0.0, maxval=1.0, dtype=tf.float32)
+        negative_contexts = tf.searchsorted(self.cumulative_table, random_samples, side='right')
+        negative_contexts = tf.reshape(negative_contexts, (batch_size, self.negative_samples))
+        
+        # Concatena o item positivo com o vetor de negativos
+        positive_contexts = tf.expand_dims(positive_contexts, axis=1) 
+        all_contexts = tf.concat([positive_contexts, negative_contexts], axis=1)
+        
+        # Define y = 1 para o item positivo e y = 0 para os negativos
+        positive_labels = tf.ones((batch_size, 1), dtype=tf.float32)
+        negative_labels = tf.zeros((batch_size, self.negative_samples), dtype=tf.float32)
+        all_labels = tf.concat([positive_labels, negative_labels], axis=1)
+        
+        return (target_items, all_contexts), all_labels, weights
+    
+    def _data_generator(self, X_target, X_context_pos, sample_weights):
 
-            X_target, X_context, y, sample_weights = [], [], [], []
-
-            arr = np.arange(len(self.interaction_list))
-            np.random.shuffle(arr)
-
-            for user_id in arr:
-
-                #Recebe a lista de itens do usuário atual
-                user_time_groups = np.array(self.time_groups[user_id])
-                curr_user = np.array(self.interaction_list[user_id])
-                user_size = len(curr_user)
-                
-                if (user_size < 2):
-                    continue
-                    
-                # Amostras positivas
-                if self.window_size == -1:
-                    user_repeat = np.repeat(range(user_size), user_size-1)
-                    user_comb = np.tile(range(user_size), user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)]  
-
-                    X_target.extend(curr_user[user_repeat])
-                    X_context.extend(curr_user[user_comb])
-                    y.extend(np.ones(user_size * (user_size-1)))
-                    sample_weights.extend(np.where((user_time_groups[user_repeat] - user_time_groups[user_comb]) == 0, 2, 1))
-                else:
-                    for i in range(user_size):
-                        #Define o início e o fim da janela de contexto
-                        start_idx = max(0, i - self.window_size)
-                        end_idx = min(user_size, i + self.window_size + 1)
-                        # Cria um array de indices e remove o alvo
-                        context_indices = np.arange(start_idx, end_idx)
-                        # Calcula os ids positivos
-                        X_target.extend(np.repeat(curr_user[i], len(context_indices)))
-                        X_context.extend(np.array(curr_user)[context_indices])
-                        y.extend(np.ones(len(context_indices)))
-                        sample_weights.extend(np.where((user_time_groups[i] - user_time_groups[context_indices]) == 0, 2, 1))
-
-                neg_X_context = []
-                #Para cada treinamento positivo, retorna N negativos
-                for curr_item in range(user_size): 
-                    neg_X_context.extend(self._negative_examples(curr_user, curr_item))
-                    X_target.extend(np.repeat(curr_user[curr_item], self.negative_samples))
-
-                X_context.extend(neg_X_context)
-                y.extend(np.zeros(len(neg_X_context)))
-                sample_weights.extend(np.ones(len(neg_X_context)))
-
-                #Treina o modelo em batch
-                if batch_processing == True:
-                    num_batches = int(len(X_target) / self.batch_size)
-                    if num_batches > 0:
-                        for i in range(0, num_batches * self.batch_size, self.batch_size):
-                            yield (np.array(X_target[i:i + self.batch_size]), np.array(X_context[i:i + self.batch_size])), np.array(y[i:i + self.batch_size]), np.array(sample_weights[i:i + self.batch_size])
-                        X_target = X_target[num_batches * self.batch_size:]
-                        X_context = X_context[num_batches * self.batch_size:]
-                        y = y[num_batches * self.batch_size:]
-                        sample_weights = sample_weights[num_batches * self.batch_size:]
-
-            yield (np.array(X_target), np.array(X_context)), np.array(y), np.array(sample_weights)
-
-    class SaveEmbeddingsCallback(tf.keras.callbacks.Callback):
-        def __init__(self, outer, save_interval=50):
-            super(Item2vec_temp_aug_model.SaveEmbeddingsCallback, self).__init__()
-            self.outer = outer 
-            self.save_interval = save_interval
-
-        def on_epoch_end(self, epoch, logs=None):
-            if (epoch + 1) % self.save_interval == 0:
-                self.outer._save_embeddings(epoch+1)
+        dataset = tf.data.Dataset.from_tensor_slices((X_target, X_context_pos, sample_weights))
+        dataset = dataset.batch(self.batch_size, num_parallel_calls=tf.data.AUTOTUNE)
+        dataset = dataset.map(self._generate_batches, num_parallel_calls=tf.data.AUTOTUNE)
+        dataset = dataset.prefetch(tf.data.AUTOTUNE)
+        return dataset
                 
     def _save_embeddings(self, epoch):
+        
+        path_components = os.path.normpath(self.embedding_dir).split(os.sep)
 
-        if (self.embedding_dir.split("\\")[2] == 'validation'):
+        if len(path_components) > 2 and path_components[2] == 'validation':
             embedding_dir = self.embedding_dir + "@epochs={}".format(epoch)
         else:
             embedding_dir = self.embedding_dir
@@ -334,6 +307,11 @@ class Item2vec_temp_aug_model:
         epochs_string = "@epochs={}".format(self.epochs)
         if os.path.exists(os.path.join(self.embedding_dir + epochs_string, kw.FILE_ITEMS_EMBEDDINGS)):
             return
+        
+        #Define os callbacks
+        memory_printing_callback = MemoryPrintingCallback()
+        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=40)
+        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
         
         np.random.seed(kw.RANDOM_STATE)
         tf.random.set_seed(kw.RANDOM_STATE)
@@ -355,35 +333,30 @@ class Item2vec_temp_aug_model:
         self.time_groups = sorted_df.groupby(kw.COLUMN_USER_ID)['increment'].agg(list).to_list()
 
         #Cria a tabela cumulativa que será utilizada para o negative sampling
-        item_freq = df.groupby(kw.COLUMN_ITEM_ID).size().values
-        self.cumulative_table = self._cumulative_table(item_freq)
-
-        #Calcula o número de samples, passos por época e se é necessário processamento em batch
-        n_samples = self._calculate_all_training_samples()
-        steps_per_epoch = (n_samples//self.batch_size) + 1
-        batch_processing = (steps_per_epoch != 1) or (self.window_size != -1)
-        batch_processing = True
-
-        print('Number of samples: {}'.format(n_samples))
-        print('Batch processing: {}'.format(batch_processing))
+        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
+        self.cumulative_table = tf.constant(self._cumulative_table(self.item_freq), dtype=tf.float32)
                 
         #Cria o modelo e inicia o treinamento
-        self.model = self._build_model()
+        self.model = self.Item2Vec(self.embedding_size, self.vocab_size)
+        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.learning_rate),
+                           loss=tf.keras.losses.BinaryCrossentropy(from_logits=True))
 
-        #Define os callbacks
-        memory_printing_callback = MemoryPrintingCallback()
-        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
-        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=5, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
+        #Formato da saida -> ((batch_size,), (batch_size, negative_samples + 1)), (batch_size, negative_samples + 1)
+        X_target, X_context_pos, sample_weights = self._generate_positive_data()
+        data = self._data_generator(X_target, X_context_pos, sample_weights)
+
+        self.model.fit(
+            data, 
+            epochs=self.epochs,
+            shuffle=False,
+            verbose=1, 
+            callbacks=[epoch_callback],
+        )
         
-        self.model.fit(self._data_generator(batch_processing),
-                  steps_per_epoch=steps_per_epoch, 
-                  epochs=self.epochs, 
-                  shuffle=False, 
-                  verbose=2, callbacks=[epoch_callback, reduce_lr])
-     
     def get_embeddings(self):
         embedding_layer = self.model.get_layer('target_embedding')
         return embedding_layer.get_weights()[0]
     
     def get_datarepr(self):
         return self.data_repr
+

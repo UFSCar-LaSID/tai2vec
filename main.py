@@ -2,7 +2,6 @@ from sklearn.model_selection import KFold, ParameterGrid
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import pandas as pd
 import scripts as kw
 from scripts.dataset import get_datasets 
@@ -29,11 +28,13 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['RetailRocket-Transactions']
-#'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
-#  'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize'
+print(tf.data.AUTOTUNE)
 
-RECOMMENDERS = ['TimeI2V_Disc_Aug']
+DATASETS = ['AmazonBooks']
+#'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
+#'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'kuairand-1k'
+
+RECOMMENDERS = ['Item2Vec_itemSim']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
@@ -60,7 +61,6 @@ def evaluate(recomendation_filepath, metrics_filepath):
     metrics_model.save_metrics(metrics_filepath)
     return metrics_model.get_best_parameters('NDCG@15')
 
-
 for dataset in get_datasets(datasets=DATASETS):
 
     dataset_name = dataset.get_name()
@@ -75,14 +75,22 @@ for dataset in get_datasets(datasets=DATASETS):
         df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME]).dt.floor('s')
     else:
         raise ValueError('Coluna temporal não encontrada')
-    
+        
     #Ordena o dataframe pela coluna de tempo
     df = df.sort_values(by=kw.COLUMN_DATETIME)
 
     #Divide o dataset em treino, validação e teste
-    df_train, df_remaining = train_test_split(df, test_size=0.4, shuffle=False)
+    df_train, df_remaining = train_test_split(df, test_size=0.3, shuffle=False)
     df_val_aux, df_test = train_test_split(df_remaining, test_size=0.5, shuffle=False)
     df_val = remove_cold_start(df_train, df_val_aux)
+
+    #print("Treino: de", df_train[kw.COLUMN_DATETIME].min(), 'a', df_train[kw.COLUMN_DATETIME].max())
+    #print("Validação: de", df_val[kw.COLUMN_DATETIME].min(), 'a', df_val[kw.COLUMN_DATETIME].max())
+    #print("Teste: de", df_test[kw.COLUMN_DATETIME].min(), 'a', df_test[kw.COLUMN_DATETIME].max())
+
+    #Divide o dataset em treino, validação e teste
+    #df_train, df_val_aux = train_test_split(df, test_size=0.15, shuffle=False)
+    #df_val = remove_cold_start(df_train, df_val_aux)
 
     if ('Recommend' in MODES): 
 
@@ -134,6 +142,8 @@ for dataset in get_datasets(datasets=DATASETS):
             recomendation_filepath = get_recomendation_filepath(kw.VALIDATION, dataset_name, recommender_name)
             metrics_filepath = get_metrics_filepath(kw.VALIDATION, dataset_name, recommender_name)
 
+            print('\n', recomendation_filepath)
+
             print('Evaluate - Dataset: {} | Recommender: {}'.format(dataset_name, recommender_name))
 
             best_parameters = evaluate(recomendation_filepath, metrics_filepath)
@@ -153,4 +163,4 @@ for dataset in get_datasets(datasets=DATASETS):
             else:
                 recommend(df_train, df_test, embeddings_filepath, recomendation_filepath, recommender.get_model(), best_parameters)
 
-            evaluate(recomendation_filepath, metrics_filepath) 
+            evaluate(recomendation_filepath, metrics_filepath)

@@ -18,7 +18,9 @@ DATASETS_TABLE = pd.DataFrame(
      [13, 'RetailRocket-All',          'I',         1.0],
      [14, 'RetailRocket-Transactions', 'I',         1.0],
      [15, 'Taobao',                    'I',         1.0],
-     [16, 'Events',                    'I',         1.0]], 
+     [16, 'Events',                    'I',         1.0],
+     [17, 'AmazonBooks',               'E',         1.0],
+     [18, 'kuairand-1k',               'E',         1.0]], 
     columns=[kw.DATASET_ID, kw.DATASET_NAME, kw.DATASET_TYPE, kw.DATASET_SAMPLING_RATE]
 ).set_index(kw.DATASET_ID)
 
@@ -33,7 +35,7 @@ class Dataset(object):
         if kw.COLUMN_RATING in self.df.columns:
             explicit_ratings = self.df[kw.COLUMN_RATING]!=-1
             min_max = self.df[explicit_ratings][kw.COLUMN_RATING].apply(['min', 'max'])
-            mean_rating = min_max.loc['min'] + (min_max.loc['max']-min_max.loc['min'])/2 + 1  
+            mean_rating = min_max.loc['min'] + (min_max.loc['max']-min_max.loc['min'])/2  
             self.df = self.df[(self.df[kw.COLUMN_RATING]>=mean_rating)|(self.df[kw.COLUMN_RATING]==-1)]
     
     def get_name(self):

@@ -14,14 +14,13 @@ from sklearn.preprocessing import MinMaxScaler
 import warnings
 warnings.filterwarnings('once')
 
-best_column = 'NDCG@15'
+best_column = 'NDCG@10'
 metric_type = ["Prec", "Rec", "F1_Score", "Hit_Rate", "NDCG"]
 top_k = [3, 5, 10, 20]
 
 main_path = "results/metrics/test"
 main_file = os.listdir(main_path)
-
-print(main_file)
+curr_metric = "NDCG"
 
 dataframes = []
 
@@ -62,8 +61,6 @@ def function_1(x):
     if(len(x.split('@')) > 1): 
         x = x.split('@')[1]
     return x
-
-curr_metric = "NDCG"
 
 for dataset_name in main_file:
     
