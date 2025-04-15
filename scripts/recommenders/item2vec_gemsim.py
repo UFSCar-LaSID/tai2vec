@@ -67,50 +67,12 @@ class Word2Vec_gemsim:
         self.batch_size = kw.MEM_SIZE_LIMIT
         self.learning_rate = learning_rate
 
-    def timestamp_diff(self, df):
-
-        def calc_diff(df_group):
-
-            df_group = df_group.sort_values(kw.COLUMN_DATETIME)
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_DATETIME] - df_group[kw.COLUMN_DATETIME].shift(1)
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].fillna(pd.to_timedelta(0, unit='s'))
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].astype('int64')/ 10**9
-
-            non_noise_diffs = df_group[df_group['timestamp_diff'] > 300]
-            df_group['Q1'] = non_noise_diffs['timestamp_diff'].quantile(0.25)
-            df_group['Q3'] = non_noise_diffs['timestamp_diff'].quantile(0.75)
-
-            return df_group
-    
-        if kw.COLUMN_TIMESTAMP in df.columns:
-            df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
-        elif kw.COLUMN_DATETIME in df.columns:
-            df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME])
-
-        # Gera a coluna de diferença entre iterações
-        df = df.groupby(kw.COLUMN_USER_ID, group_keys=False).apply(calc_diff).reset_index(drop=True)
-        df[kw.COLUMN_THRESHOLD] = df['Q3'] + ((1 + 0.5) * (df['Q3'] - df['Q1']))
-        
-        df['mask'] = df[kw.COLUMN_TIME_DIFF] >= df[kw.COLUMN_THRESHOLD]
-        df['increment'] = df.groupby(kw.COLUMN_USER_ID)['mask'].cumsum()
-        df['old_user_id'] = df[kw.COLUMN_USER_ID]
-        df[kw.COLUMN_USER_ID] = df.groupby([kw.COLUMN_USER_ID, 'increment']).ngroup()
-
-        df.drop(columns=['mask', 'increment'], inplace=True)
-
-        return df
-
     def save_embeddings(self):
         os.makedirs(self.embeddings_filepath, exist_ok=True)
         np.save(os.path.join(self.embeddings_filepath, kw.FILE_ITEMS_EMBEDDINGS), self.model.wv.vectors)
         pickle.dump(self.data_repr, open(os.path.join(self.embeddings_filepath, kw.FILE_SPARSE_REPR), 'wb'))
 
     def fit(self, df):
-
-        if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
-            df = self.timestamp_diff(df)
-        else:
-            raise Exception("Timestamp column not found")
 
         self.data_repr = DataRepr(df)
         sparse_matrix = self.data_repr.get_user_items_matrix()

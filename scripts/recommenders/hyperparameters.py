@@ -14,52 +14,43 @@ BPR_HYPERPARAMETERS = {
 }
 
 GEMSIM_HYPERPARAMETERS = {
-    'learning_rate': [0.25, 0.025], #0.1, 0.25, 
-    'sample': [0.001],
-    #'negative_samples': [3, 10],
-    'ns_exp': [-0.75],
-    #'batch_size': [2**16],
-    'epochs': [50, 100], #150, 200
+    'learning_rate': [0.025, 0.0025, 0.00025],
+    'sample': [0.01, 0.001, 0.0001, 0.00001],
+    'negative_sampling': [5],
+    'ns_exp':[-0.75, -0.5, 0.5, 0.75],
+    'epochs': [10, 20, 40],
 }
 
 ITEM2VEC_HYPERPARAMETERS = {
-    'factors': [100],
-    'w_size': [30],
-    'learning_rate': [0.25, 0.025, 0.0025], #0.1, 0.25, 
-    #'min_learning_rate': [0.025, 0.000025],
-    'subsample': [0.001],
-    'negative_samples': [7],
-    'negative_exp': [-0.75, -0.5, 0.5, 0.75],
-    #'lr_decay': [0.98, 0.96, 0.94],
-    'batch_size': [2**16],
-    #'regularization': [-1],
+    'w_size': [-1],
+    'learning_rate': [0.01, 0.001],
+    'subsample': [0.01, 0.001],
+    'negative_exp': [-1, -0.5, 0.5, 1],
+    'lr_decay': [0.96],
+    'regularization': [1e-5, 1e-6],
 }
 
 
 ITEM2VEC_TEMP_HYPERPARAMETERS = {
-    'factors': [100],
     'w_size': [-1],
-    'learning_rate': [0.25, 0.025, 0.0025], #0.1, 0.25, 
-    #'min_learning_rate': [0.025, 0.000025],
-    'subsample': [0.01, 0.001, 0.0001],
-    'negative_samples': [7],
-    'negative_exp': [-0.75, -0.5, 0.5, 0.75],
-    #'lr_decay': [0.98, 0.96, 0.94],
+    'learning_rate': [0.0025, 0.001],
+    'subsample': [0.01, 0.001],
+    'negative_exp': [-1, -0.5, 0.5, 1],
+    'lr_decay': [0.96],
+    'regularization': [1e-5, 1e-6],
     'time_exp': [1, 1.5, 2],
-    'min_time_diff': [300]
+    'min_time_diff': [86300]
 }
 
 ITEM2VEC_CONT_HYPERPARAMETERS = {
     'factors': [100],
-    'w_size': [30],
-    'learning_rate': [0.25, 0.025, 0.0025], #0.1, 0.25, 
-    #'min_learning_rate': [0.025, 0.000025],
-    'subsample': [0.001],
-    'negative_samples': [7],
+    'w_size': [-1, 5],
+    'learning_rate': [0.25, 0.025, 0.0025],
+    'subsample': [0.001, 0.0001],
+    'negative_samples': [5, 10],
     'negative_exp': [-0.75, -0.5, 0.5, 0.75],
-    #'lr_decay': [0.98, 0.96, 0.94],
     'curve_exp': [-1, 2],
-    'min_weight': [0.2],
+    'min_weight': [0.1],
     'weight_floor': [0.3],
     'min_time_diff': [300]
 }

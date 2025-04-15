@@ -74,3 +74,5 @@ N_EVAL = 20
 
 # Limite de memória
 MEM_SIZE_LIMIT = int(2**16) #22
+
+EVALUATION_PARAMETER = 'NDCG@15'

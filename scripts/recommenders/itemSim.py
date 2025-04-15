@@ -10,13 +10,13 @@ class ItemSim(object):
         self.k = k
         self.sparse_repr = pickle.load(open(os.path.join(embeddings_filepath, kw.FILE_SPARSE_REPR), 'rb'))
         self.embeddings = np.load(open(os.path.join(embeddings_filepath, kw.FILE_ITEMS_EMBEDDINGS), 'rb'), allow_pickle=True)
-        self.embeddings = self.embeddings / np.sqrt(np.sum(self.embeddings**2, axis=1)).reshape(-1,1)
+        #self.embeddings = self.embeddings / np.sqrt(np.sum(self.embeddings**2, axis=1)).reshape(-1,1)
 
     def fit(self, df):
         
         n_items = self.embeddings.shape[0]
         
-        items_per_batch = kw.MEM_SIZE_LIMIT
+        items_per_batch = int(kw.MEM_SIZE_LIMIT/2)
 
         if items_per_batch == 0:
             items_per_batch = kw.MEM_SIZE_LIMIT

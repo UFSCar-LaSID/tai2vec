@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import scripts as kw
+import numpy as np
 
 DATASETS_TABLE = pd.DataFrame(
     [[1,  'Anime Recommendations',     'E',         1.0],
@@ -20,7 +21,8 @@ DATASETS_TABLE = pd.DataFrame(
      [15, 'Taobao',                    'I',         1.0],
      [16, 'Events',                    'I',         1.0],
      [17, 'AmazonBooks',               'E',         1.0],
-     [18, 'kuairand-1k',               'E',         1.0]], 
+     [18, 'AmazonBeauty',              'E',         1.0],
+     [19, 'kuairand-1k',               'E',         1.0],], 
     columns=[kw.DATASET_ID, kw.DATASET_NAME, kw.DATASET_TYPE, kw.DATASET_SAMPLING_RATE]
 ).set_index(kw.DATASET_ID)
 
@@ -32,11 +34,21 @@ class Dataset(object):
         self.sampling_rate = DATASETS_TABLE.loc[id, kw.DATASET_SAMPLING_RATE]
         self.df = pd.read_csv(path, delimiter=kw.DELIMITER, encoding=kw.ENCODING, quoting=kw.QUOTING, quotechar=kw.QUOTECHAR, header=0)
         self.df = self.df.dropna().drop_duplicates(subset=[kw.COLUMN_USER_ID, kw.COLUMN_ITEM_ID], keep='last')
+
         if kw.COLUMN_RATING in self.df.columns:
             explicit_ratings = self.df[kw.COLUMN_RATING]!=-1
             min_max = self.df[explicit_ratings][kw.COLUMN_RATING].apply(['min', 'max'])
             mean_rating = min_max.loc['min'] + (min_max.loc['max']-min_max.loc['min'])/2  
             self.df = self.df[(self.df[kw.COLUMN_RATING]>=mean_rating)|(self.df[kw.COLUMN_RATING]==-1)]
+
+        if self.sampling_rate < 1.0:
+            self.df = self.sample_dataset(self.df)
+
+    def sample_dataset(self, df):
+        unique_users = df['id_user'].unique()
+        num_users_to_remove = int(len(unique_users) * (1-self.sampling_rate))
+        users_to_remove = np.random.choice(unique_users, num_users_to_remove, replace=False)
+        return df[~df['id_user'].isin(users_to_remove)]
     
     def get_name(self):
         return self.name

@@ -15,6 +15,18 @@ def str_to_dict(string):
     return {key: convert_value(value) for key, value in (item.split('=') for item in string.split('@'))}
 
 
+def get_all_embeddings_filepath(file_type, dataset_name, recommender_name):
+
+    files_path = []
+    parameters_string = []
+    
+    main_path = os.path.join(MAIN_FOLDER, 'embeddings', file_type, dataset_name, recommender_name)
+    for curr_file in os.listdir(main_path):
+        files_path.append(os.path.join(main_path, curr_file))
+        parameters_string.append(curr_file)
+
+    return files_path, parameters_string
+
 def get_embeddings_filepath(file_type, dataset_name, recommender_name, parameters):
     if isinstance(parameters, dict):
         parameters = _dict_to_str(parameters)
@@ -29,17 +41,7 @@ def get_metrics_filepath(file_type, dataset_name, recommender_name):
     filepath = os.path.join(MAIN_FOLDER, 'metrics', file_type, dataset_name, recommender_name)
     return filepath
 
-def get_all_embeddings_filepath(file_type, dataset_name, recommender_name, embeddings_parameters='all'):
 
-    files_path = []
-    parameters_string = []
-    
-    main_path = os.path.join(MAIN_FOLDER, 'embeddings', file_type, dataset_name, recommender_name)
-    for curr_file in os.listdir(main_path):
-        files_path.append(os.path.join(main_path, curr_file))
-        parameters_string.append(curr_file)
-
-    return files_path, parameters_string
 
 def log_recommendations(recomendation_filepath, parameters_string, df_test, recommendations):
     if isinstance(parameters_string, dict):

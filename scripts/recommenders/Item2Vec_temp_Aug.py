@@ -81,7 +81,7 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['peak']) / (1024 ** 3)))
       
 class Item2vec_temp_aug_model:
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=160, time_exp=1, min_time_diff=300, lr_decay=0.5):
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=80, time_exp=1, min_time_diff=300, lr_decay=0.5, regularization=-1):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -96,6 +96,7 @@ class Item2vec_temp_aug_model:
         self.time_exp = time_exp
         self.min_time_diff = min_time_diff
         self.lr_decay = lr_decay
+        self.regularization = regularization
 
         self.X_target = []
         self.X_context = []
@@ -107,40 +108,46 @@ class Item2vec_temp_aug_model:
         self.model = None
         self.cumulative_table = None
 
-    class Item2Vec(tf.keras.Model):
-        def __init__(self, embedding_size, vocab_size):
-            super(Item2vec_temp_aug_model.Item2Vec, self).__init__()
-            init_width = 0.5 / embedding_size
-            initializer = initializers.RandomUniform(minval=-init_width, maxval=init_width, seed=kw.RANDOM_STATE)
-            self.target_embedding = layers.Embedding(vocab_size, embedding_size, name='target_embedding', embeddings_initializer=initializer)
-            self.context_embedding = layers.Embedding(vocab_size, embedding_size, name='context_embedding', embeddings_initializer=initializer)
-    
-        def call(self, inputs):
+    def _build_model(self):
 
-            # target:  (batch_size, 1)
-            # context: (batch_size, negative_sampling+1)
-            target_item, context_item = inputs
+        target_item = Input(shape=(1,), name='target_item')
+        context_item = Input(shape=(1,), name='context_item')
 
-            if len(target_item.shape) == 2:
-                target_item = tf.squeeze(target_item, axis=1)
+        init_width = 0.5 / self.embedding_size
+        initializer = initializers.RandomUniform(minval=-init_width, maxval=init_width, seed=kw.RANDOM_STATE)
 
-            # target_embedding:  (batch_size, embedding_size)
-            # context_embedding: (batch_size, negative_sampling+1, embedding_size)
-            target_embedding = self.target_embedding(target_item)
-            context_embedding = self.context_embedding(context_item)
+        if self.regularization != -1:
+            target_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='target_embedding', embeddings_initializer = initializer, embeddings_regularizer = regularizers.l2(self.regularization))
+            context_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='context_embedding', embeddings_initializer = initializer, embeddings_regularizer = regularizers.l2(self.regularization))
+        else:
+            target_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='target_embedding', embeddings_initializer = initializer)
+            context_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='context_embedding', embeddings_initializer = initializer)
 
-            # dots: (batch_size, negative_sampling+1)
-            dots = tf.einsum('be,bce->bc', target_embedding, context_embedding)
-            return dots
-    
+        embedding_target = target_embedding_lookup(target_item)
+        embedding_context = context_embedding_lookup(context_item)
+
+        merged_vector = layers.dot([embedding_target, embedding_context], axes=-1)
+        reshaped_vector = layers.Reshape((1,))(merged_vector)
+        prediction = layers.Activation('sigmoid')(reshaped_vector)
+
+        lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate = self.learning_rate, 
+            decay_steps = self.steps_per_epoch, 
+            decay_rate = self.lr_decay, staircase=True)
+        
+        model = Model(inputs=[target_item, context_item], outputs=prediction)
+        model.compile(optimizer=Adam(learning_rate=lr_schedule), loss='binary_crossentropy')
+
+        return model
+
     class SaveEmbeddingsCallback(tf.keras.callbacks.Callback):
-        def __init__(self, outer, save_interval=50):
+        def __init__(self, outer, save_interval=20):
             super(Item2vec_temp_aug_model.SaveEmbeddingsCallback, self).__init__()
             self.outer = outer 
             self.save_interval = save_interval
 
         def on_epoch_end(self, epoch, logs=None):
-            if (epoch + 1) % self.save_interval == 0:
+            if ((epoch + 1) % self.save_interval == 0) or (epoch+1 == 5) or (epoch+1 == 10) or (epoch+1 == 15):
                 self.outer._save_embeddings(epoch+1)
 
     def timestamp_diff(self, df):
@@ -256,6 +263,7 @@ class Item2vec_temp_aug_model:
 
             X_target.extend(X_target_aux)
             X_context.extend(X_context_aux)
+            self.steps_per_epoch = (len(X_target) // self.batch_size) + 1
 
         return np.array(X_target), np.array(X_context), np.array(sample_weights)
             
@@ -263,9 +271,15 @@ class Item2vec_temp_aug_model:
     def _generate_batches(self, target_items, positive_contexts, weights):
 
         batch_size = tf.shape(target_items)[0]
+
+        target_items_repeated = tf.repeat(target_items, self.negative_samples + 1)
+        #weight_repeated = tf.repeat(weights, self.negative_samples + 1)
+
+        ones = tf.ones([tf.shape(weights)[0], self.negative_samples], dtype=weights.dtype)
+        weight_repeated = tf.reshape(tf.concat([tf.expand_dims(weights, axis=1), ones], axis=1), [-1])
         
         #Seleciona os itens negativos
-        random_samples = tf.random.uniform(shape=(batch_size * self.negative_samples,), minval=0.0, maxval=1.0, dtype=tf.float32)
+        random_samples = self.tf_generator.uniform(shape=(batch_size * self.negative_samples,), minval=0.0, maxval=1.0, dtype=tf.float32)
         negative_contexts = tf.searchsorted(self.cumulative_table, random_samples, side='right')
         negative_contexts = tf.reshape(negative_contexts, (batch_size, self.negative_samples))
         
@@ -277,8 +291,12 @@ class Item2vec_temp_aug_model:
         positive_labels = tf.ones((batch_size, 1), dtype=tf.float32)
         negative_labels = tf.zeros((batch_size, self.negative_samples), dtype=tf.float32)
         all_labels = tf.concat([positive_labels, negative_labels], axis=1)
+
+        # Achata os contextos para corresponder aos target_items_repeated
+        all_contexts_flat = tf.reshape(all_contexts, [-1])
+        all_labels_flat = tf.reshape(all_labels, [-1])
         
-        return (target_items, all_contexts), all_labels, weights
+        return (target_items_repeated, all_contexts_flat), all_labels_flat, weight_repeated
     
     def _data_generator(self, X_target, X_context_pos, sample_weights):
 
@@ -310,11 +328,12 @@ class Item2vec_temp_aug_model:
         
         #Define os callbacks
         memory_printing_callback = MemoryPrintingCallback()
-        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=40)
+        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
         reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
         
         np.random.seed(kw.RANDOM_STATE)
         tf.random.set_seed(kw.RANDOM_STATE)
+        self.tf_generator = tf.random.Generator.from_seed(kw.RANDOM_STATE)
 
         if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
             df = self.timestamp_diff(df)
@@ -336,14 +355,10 @@ class Item2vec_temp_aug_model:
         self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
         self.cumulative_table = tf.constant(self._cumulative_table(self.item_freq), dtype=tf.float32)
                 
-        #Cria o modelo e inicia o treinamento
-        self.model = self.Item2Vec(self.embedding_size, self.vocab_size)
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.learning_rate),
-                           loss=tf.keras.losses.BinaryCrossentropy(from_logits=True))
-
-        #Formato da saida -> ((batch_size,), (batch_size, negative_samples + 1)), (batch_size, negative_samples + 1)
         X_target, X_context_pos, sample_weights = self._generate_positive_data()
         data = self._data_generator(X_target, X_context_pos, sample_weights)
+
+        self.model = self._build_model()
 
         self.model.fit(
             data, 

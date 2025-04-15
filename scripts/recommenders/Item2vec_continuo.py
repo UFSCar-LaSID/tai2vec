@@ -87,7 +87,7 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['peak']) / (1024 ** 3)))
       
 class Item2vec_Temp_Cont_model:
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=7, negative_exp=0.75, min_weight = 0.3, curve_exp = 2, epochs=160, min_time_diff=60, weight_floor=0.3, lr_decay=0.5):
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=7, negative_exp=0.75, min_weight = 0.3, curve_exp = 2, epochs=80, min_time_diff=60, weight_floor=0.3, lr_decay=0.5):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -332,7 +332,7 @@ class Item2vec_Temp_Cont_model:
             self.save_interval = save_interval
 
         def on_epoch_end(self, epoch, logs=None):
-            if (epoch + 1) % self.save_interval == 0:
+            if ((epoch + 1) % self.save_interval == 0) or (epoch+1 == 5) or (epoch+1 == 10) or (epoch+1 == 15):
                 self.outer._save_embeddings(epoch+1)
                 
     def _save_embeddings(self, epoch):
@@ -356,7 +356,7 @@ class Item2vec_Temp_Cont_model:
             return
         
         np.random.seed(kw.RANDOM_STATE)
-        tf.random.set_seed(kw.RANDOM_STATE)
+        self.tf_generator = tf.random.Generator.from_seed(kw.RANDOM_STATE)
 
         if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
             df = self.timestamp_cum(df)
@@ -388,7 +388,7 @@ class Item2vec_Temp_Cont_model:
 
         #Define os callbacks
         memory_printing_callback = MemoryPrintingCallback()
-        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=40)
+        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
         reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
         
         #Formato da saida -> ((batch_size,), (batch_size, negative_samples + 1)), (batch_size, negative_samples + 1)

@@ -10,7 +10,6 @@ class Metrics:
         column_names = ['Parameters'] + ['{}@{}'.format(m, n+1) for m in ['Prec', 'Rec', 'F1_Score', 'Hit_Rate', 'NDCG'] for n in range(self.n_eval)]
         self.result_df = pd.DataFrame([], columns=column_names)
 
-
     def get_dataframe(self):
         return self.result_df
 
@@ -40,7 +39,13 @@ class Metrics:
             dcg += sum(1 / np.log2(i + 2) for i, item in enumerate(pred[:k]) if relevance.get(item) is not None)
             idcg += sum(1 / np.log2(i + 2) for i in range(len(real)))
         return (dcg / idcg)
+    
 
+    def safe_literal_eval(self, val):
+        if not val or val.strip() == "[]":
+            print(f"Warning: Empty or invalid value encountered: {val}")
+            return []
+        return ast.literal_eval(val)
 
     #Gera metricas a partir do arquivo de recomendações a partir do filepath dado, concatena o resultado no dataframe final
     def add_metrics(self, recomendation_filepath):
@@ -50,7 +55,7 @@ class Metrics:
             data = pd.read_csv(
                 os.path.join(recomendation_filepath, parameters, 'recommendations.csv'), 
                 sep=';', 
-                converters={"recommendations": ast.literal_eval, "items": ast.literal_eval}
+                converters={"recommendations": self.safe_literal_eval, "items": self.safe_literal_eval}
             )
 
             # Converte dataframe em arrays numpy

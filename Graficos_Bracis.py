@@ -8,13 +8,13 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import plotly.io as pio
-
 from sklearn.preprocessing import MinMaxScaler
+import scripts as kw
 
 import warnings
 warnings.filterwarnings('once')
 
-best_column = 'NDCG@10'
+best_column = kw.EVALUATION_PARAMETER
 metric_type = ["Prec", "Rec", "F1_Score", "Hit_Rate", "NDCG"]
 top_k = [3, 5, 10, 20]
 
