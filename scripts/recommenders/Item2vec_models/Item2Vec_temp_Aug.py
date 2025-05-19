@@ -81,7 +81,7 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['peak']) / (1024 ** 3)))
       
 class Item2vec_temp_aug_model:
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=80, time_exp=1, min_time_diff=300, lr_decay=0.5, regularization=-1):
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=200, time_exp=1, min_time_diff=300, lr_decay=0.95, regularization=-1):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -147,7 +147,8 @@ class Item2vec_temp_aug_model:
             self.save_interval = save_interval
 
         def on_epoch_end(self, epoch, logs=None):
-            if ((epoch + 1) % self.save_interval == 0) or (epoch+1 == 5) or (epoch+1 == 10) or (epoch+1 == 15):
+            #if ((epoch + 1) % self.save_interval == 0) or (epoch+1 == 5) or (epoch+1 == 10):
+            if (epoch+1 == 5) or (epoch+1 == 10) or (epoch+1 == 20) or (epoch+1 == 50) or (epoch+1 == 100) or (epoch+1 == 200) or (epoch+1 == 150):
                 self.outer._save_embeddings(epoch+1)
 
     def timestamp_diff(self, df):
@@ -205,20 +206,6 @@ class Item2vec_temp_aug_model:
         probabilities = item_frequencies / total_count
         cum_table = np.cumsum(probabilities)
         return (cum_table / cum_table[-1])
-    
-    def _negative_examples(self, curr_user, negative_pairs):
-
-        raw_samps = np.random.rand(negative_pairs,)
-        ss = np.searchsorted(self.cumulative_table, raw_samps)
-        pos_mask = (ss == np.take(curr_user, ss, mode='clip'))
-        X_context = ss[~pos_mask]
-
-        while len(X_context) < (negative_pairs):
-            random = np.searchsorted(self.cumulative_table, np.random.rand(1,))
-            if random not in curr_user:
-                X_context = np.concatenate((X_context, random))
-
-        return X_context
 
     def _generate_positive_data(self):
 

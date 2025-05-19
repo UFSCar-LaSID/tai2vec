@@ -31,11 +31,11 @@ else:
 
 print(tf.data.AUTOTUNE)
 
-DATASETS = ['CiaoDVD', 'Taobao']
+DATASETS = ['DeliciousBookmarks']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty'
 
-RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug']
+RECOMMENDERS = ['Item2Vec_itemSim', 'TimeI2V_Disc_Aug']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
@@ -61,7 +61,7 @@ def recommend(df_train, df_test, embeddings_filepath, recomendation_filepath, re
 def evaluate(recomendation_filepath, metrics_filepath):
     metrics_model = Metrics(kw.N_EVAL)
     metrics_model.add_metrics(recomendation_filepath)
-    metrics_model.save_metrics(metrics_filepath)
+    metrics_model.save_metrics(metrics_filepath)    
     return metrics_model.get_best_parameters(kw.EVALUATION_PARAMETER)
 
 for dataset in get_datasets(datasets=DATASETS):
