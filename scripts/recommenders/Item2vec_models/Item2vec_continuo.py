@@ -20,76 +20,16 @@ import time
 import keras
 from keras import layers, Model, Input, regularizers, initializers, callbacks
 from scripts.recommenders.Item2vec_models.Data_repr import DataRepr
+from scripts.recommenders.Item2vec_models.Item2Vec_declaration import Item2vec_abstract
 from keras.optimizers import Adam # type: ignore
-
-class MemoryPrintingCallback(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs=None):
-      gpu_dict = tf.config.experimental.get_memory_info('GPU:0')
-      tf.print('\n GPU memory details [current: {} gb, peak: {} gb]'.format(
-          float(gpu_dict['current']) / (1024 ** 3), 
-          float(gpu_dict['peak']) / (1024 ** 3)))
       
-class Item2vec_Temp_Cont_model:
+class Item2vec_Temp_Cont_model(Item2vec_abstract):
     def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, min_weight = 0.3, curve_exp = 2, epochs=100, min_time_diff=60, weight_floor=0.3, lr_decay=0.96, regularization=-1):
-        
-        self.embedding_dir = embedding_dir
-        self.embedding_size = factors
-        self.window_size = w_size
-        self.subsample_threshold = subsample
-        self.negative_samples = negative_samples
-        self.negative_expoent = negative_exp
-        self.learning_rate = learning_rate
-        self.min_learning_rate = min_learning_rate
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.min_weight = min_weight
-        self.weight_floor = weight_floor
-        self.curve_exp = curve_exp
+        super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate, subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
         self.min_time_diff = min_time_diff
-        self.lr_decay = lr_decay
-        self.regularization = regularization
-
-        self.X_target = []
-        self.X_context = []
-        self.y = []
-
-        self.data_repr = None
-        self.vocab_size = None
-        self.subsample_probs = None
-        self.model = None
-        self.cumulative_table = None
-    
-    def _build_model(self):
-
-        target_item = Input(shape=(1,), name='target_item')
-        context_item = Input(shape=(1,), name='context_item')
-
-        init_width = 0.05
-        initializer = initializers.RandomUniform(minval=-init_width, maxval=init_width, seed=kw.RANDOM_STATE)
-
-        if self.regularization != -1:
-            target_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='target_embedding', embeddings_initializer = initializer, embeddings_regularizer = regularizers.l2(self.regularization))
-            context_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='context_embedding', embeddings_initializer = initializer, embeddings_regularizer = regularizers.l2(self.regularization))
-        else:
-            target_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='target_embedding', embeddings_initializer = initializer)
-            context_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='context_embedding', embeddings_initializer = initializer)
-
-        embedding_target = target_embedding_lookup(target_item)
-        embedding_context = context_embedding_lookup(context_item)
-
-        merged_vector = layers.dot([embedding_target, embedding_context], axes=-1)
-        reshaped_vector = layers.Reshape((1,))(merged_vector)
-        prediction = layers.Activation('sigmoid')(reshaped_vector)
-
-        lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate = self.learning_rate, 
-            decay_steps = self.steps_per_epoch, 
-            decay_rate = self.lr_decay, staircase=True)
-        
-        model = Model(inputs=[target_item, context_item], outputs=prediction)
-        model.compile(optimizer=Adam(learning_rate=lr_schedule), loss='binary_crossentropy')
-
-        return model
+        self.min_weight = min_weight
+        self.curve_exp = curve_exp
+        self.weight_floor = weight_floor
     
     def timestamp_cum(self, df):
 
@@ -137,44 +77,6 @@ class Item2vec_Temp_Cont_model:
         df = df.groupby(kw.COLUMN_USER_ID, group_keys=False).apply(calc_diff).reset_index(drop=True)
 
         return df
-    
-    def _subsample_items(self, df):
-
-        freq = df.groupby(kw.COLUMN_ITEM_ID).size()
-        n_interactions = len(df)
-        z = freq / n_interactions
-        keep_prob = (np.sqrt(z/self.subsample_threshold) + 1) * (self.subsample_threshold/z)
-        keep_prob = keep_prob.reindex(df[kw.COLUMN_ITEM_ID])
-        keep_prob.index = df.index
-        discarded_interactions = keep_prob < np.random.rand(n_interactions)
-        return df[~discarded_interactions].copy()
-    
-    def _cumulative_table(self, item_frequencies):
-
-        # Cria a tabela cumulativa com todos os itens
-        if self.negative_expoent > 0:
-            item_frequencies = np.power(item_frequencies, self.negative_expoent)
-        else:
-            item_frequencies = np.reciprocal(np.power(item_frequencies, abs(self.negative_expoent)))
-
-        total_count = np.sum(item_frequencies)
-        probabilities = item_frequencies / total_count
-        cum_table = np.cumsum(probabilities)
-        return (cum_table / cum_table[-1])
-    
-    def _negative_examples(self, curr_user, negative_pairs):
-
-        raw_samps = np.random.rand(negative_pairs,)
-        ss = np.searchsorted(self.cumulative_table, raw_samps)
-        pos_mask = (ss == np.take(curr_user, ss, mode='clip'))
-        X_context = ss[~pos_mask]
-
-        while len(X_context) < (negative_pairs):
-            random = np.searchsorted(self.cumulative_table, np.random.rand(1,))
-            if random not in curr_user:
-                X_context = np.concatenate((X_context, random))
-
-        return X_context
 
     def _calculate_weights(self, distances, mean, std): 
 
@@ -298,31 +200,6 @@ class Item2vec_Temp_Cont_model:
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
         return dataset
 
-    class SaveEmbeddingsCallback(tf.keras.callbacks.Callback):
-        def __init__(self, outer, save_interval=50):
-            super(Item2vec_Temp_Cont_model.SaveEmbeddingsCallback, self).__init__()
-            self.outer = outer 
-            self.save_interval = save_interval
-
-        def on_epoch_end(self, epoch, logs=None):
-            #if ((epoch + 1) % self.save_interval == 0) or (epoch+1 == 5) or (epoch+1 == 10):
-            if (epoch+1 == 5) or (epoch+1 == 10) or (epoch+1 == 20) or (epoch+1 == 50) or (epoch+1 == 100):
-                self.outer._save_embeddings(epoch+1)
-                
-    def _save_embeddings(self, epoch):
-
-        path_components = os.path.normpath(self.embedding_dir).split(os.sep)
-
-        if len(path_components) > 2 and path_components[2] == 'validation':
-            embedding_dir = self.embedding_dir + "@epochs={}".format(epoch)
-        else:
-            embedding_dir = self.embedding_dir
-
-        os.makedirs(embedding_dir, exist_ok=True)
-        item_embeddings = self.model.get_layer('target_embedding').get_weights()[0]
-        np.save(os.path.join(embedding_dir, kw.FILE_ITEMS_EMBEDDINGS), item_embeddings)
-        pickle.dump(self.data_repr, open(os.path.join(embedding_dir, kw.FILE_SPARSE_REPR), 'wb'))
-
     def fit(self, df):
 
         epochs_string = "@epochs={}".format(self.epochs)
@@ -356,7 +233,6 @@ class Item2vec_Temp_Cont_model:
         self.cumulative_table = tf.constant(self._cumulative_table(self.item_freq), dtype=tf.float32)
 
         #Define os callbacks
-        memory_printing_callback = MemoryPrintingCallback()
         epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
         reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
         
@@ -372,10 +248,3 @@ class Item2vec_Temp_Cont_model:
             verbose=1, 
             callbacks=[epoch_callback],
         )
-     
-    def get_embeddings(self):
-        embedding_layer = self.model.get_layer('target_embedding')
-        return embedding_layer.get_weights()[0]
-    
-    def get_datarepr(self):
-        return self.data_repr
