@@ -17,54 +17,10 @@ import scripts as kw
 
 import keras
 from keras import layers, Model, Input, regularizers, initializers, callbacks, optimizers
+from scripts.recommenders.Item2vec_models.Data_repr import DataRepr
+from scripts.recommenders.Item2vec_models.Item2Vec_declaration import Item2vec_abstract
 from keras.optimizers import Adam # type: ignore
 from keras.optimizers import schedules
-
-class DataRepr(object):
-    
-    def __init__(self, df):
-        self.le_users = LabelEncoder()
-        self.le_users.fit(df[kw.COLUMN_USER_ID])
-        self.le_items = LabelEncoder()
-        self.le_items.fit(df[kw.COLUMN_ITEM_ID])
-    
-    def create_user_items_matrix(self, df):
-        data = np.ones(len(df))
-        user_ind = self.le_users.transform(df[kw.COLUMN_USER_ID])
-        item_ind = self.le_items.transform(df[kw.COLUMN_ITEM_ID])
-        n_users = len(self.le_users.classes_)
-        n_items = len(self.le_items.classes_)
-        return csr_matrix((data, (user_ind, item_ind)), shape=(n_users, n_items))
-    
-    def create_interaction_list(self, df):
-
-        df[kw.COLUMN_USER_ID] = self.le_users.transform(df[kw.COLUMN_USER_ID])
-        df[kw.COLUMN_ITEM_ID] = self.le_items.transform(df[kw.COLUMN_ITEM_ID])
-
-        grouped_items = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_ITEM_ID].agg(list)
-        return grouped_items.tolist()
-    
-    def get_n_user(self):
-        return len(self.le_users.classes_)
-    
-    def get_n_items(self):
-        return len(self.le_items.classes_)
-    
-    def get_user_index(self, user_id):
-        return self.le_users.transform([user_id])[0]
-    
-    def get_item_index(self, item_id):
-        return self.le_items.transform([item_id])[0]
-    
-    def get_item_id(self, item_index):
-        return self.le_items.inverse_transform(np.array(item_index))
-    
-    def get_item_id(self, item_index):
-        return self.le_items.inverse_transform(np.array(item_index)) 
-    
-    def get_user_items_matrix(self):
-        return self.interaction_matrix
-    
 
 class MemoryPrintingCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
@@ -73,89 +29,11 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['current']) / (1024 ** 3), 
           float(gpu_dict['peak']) / (1024 ** 3)))
       
-class Item2vec_temp_model:
+class Item2vec_temp_model(Item2vec_abstract):
     def __init__(self, embedding_dir, factors=50, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025 ,subsample = 0.001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75, epochs=100, lr_decay=0.1, time_exp=1.5, min_time_diff=300, regularization=-1):
-        
-        self.embedding_dir = embedding_dir
-        self.embedding_size = factors
-        self.window_size = w_size
-        self.subsample_threshold = subsample
-        self.negative_samples = negative_samples
-        self.negative_expoent = negative_exp
-        self.learning_rate = learning_rate
-        self.min_learning_rate = min_learning_rate 
-        self.epochs = epochs
-        self.batch_size = batch_size
+        super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate, subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
         self.time_exp = time_exp
         self.min_time_diff = min_time_diff
-        self.lr_decay = lr_decay
-        self.regularization = regularization
-
-        self.X_target = []
-        self.X_context = []
-        self.y = []
-
-        self.data_repr = None
-        self.vocab_size = None
-        self.subsample_probs = None
-        self.model = None
-        self.cumulative_table = None
-
-
-    def _build_model(self):
-
-        target_item = Input(shape=(1,), name='target_item')
-        context_item = Input(shape=(1,), name='context_item')
-
-        init_width = 0.5 / self.embedding_size
-        initializer = initializers.RandomUniform(minval=-init_width, maxval=init_width, seed=kw.RANDOM_STATE)
-
-        if self.regularization != -1:
-            target_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='target_embedding', embeddings_initializer = initializer, embeddings_regularizer = regularizers.l2(self.regularization))
-            context_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='context_embedding', embeddings_initializer = initializer, embeddings_regularizer = regularizers.l2(self.regularization))
-        else:
-            target_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='target_embedding', embeddings_initializer = initializer)
-            context_embedding_lookup = layers.Embedding(self.vocab_size, self.embedding_size, name='context_embedding', embeddings_initializer = initializer)
-
-        embedding_target = target_embedding_lookup(target_item)
-        embedding_context = context_embedding_lookup(context_item)
-
-        merged_vector = layers.dot([embedding_target, embedding_context], axes=-1)
-        reshaped_vector = layers.Reshape((1,))(merged_vector)
-        prediction = layers.Activation('sigmoid')(reshaped_vector)
-
-        lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate = self.learning_rate, 
-            decay_steps = self.steps_per_epoch, 
-            decay_rate = self.lr_decay, staircase=True)
-        
-        model = Model(inputs=[target_item, context_item], outputs=prediction)
-        model.compile(optimizer=Adam(learning_rate=lr_schedule), loss='binary_crossentropy')
-
-        return model
-    
-    class SaveEmbeddingsCallback(tf.keras.callbacks.Callback):
-        def __init__(self, outer, save_interval=20):
-            super(Item2vec_temp_model.SaveEmbeddingsCallback, self).__init__()
-            self.outer = outer 
-            self.save_interval = save_interval
-
-        def on_epoch_end(self, epoch, logs=None):
-            if ((epoch + 1) % self.save_interval == 0) or (epoch+1 == 5) or (epoch+1 == 10):
-                print("\nSaving embeddings...")
-                self.outer._save_embeddings(epoch+1)
-
-    #Define os callbacks
-    class PrintContextCallback(tf.keras.callbacks.Callback):
-        def __init__(self, dataset):
-            super(Item2vec_temp_model.PrintContextCallback, self).__init__()
-            self.dataset = dataset
-
-        def on_epoch_end(self, epoch, logs=None):
-            for (target, context), y in self.dataset.take(1): 
-                print(f"\nEpoch {epoch + 1} - Context Array:")
-                print(context.numpy())
-                break 
 
     def timestamp_diff(self, df):
 
@@ -190,30 +68,6 @@ class Item2vec_temp_model:
         df.drop(columns=['mask', 'increment', 'Q1', 'Q3'], inplace=True)
 
         return df
-    
-    def _subsample_items(self, df):
-
-        freq = df.groupby(kw.COLUMN_ITEM_ID).size()
-        n_interactions = len(df)
-        z = freq / n_interactions
-        keep_prob = (np.sqrt(z/self.subsample_threshold) + 1) * (self.subsample_threshold/z)
-        keep_prob = keep_prob.reindex(df[kw.COLUMN_ITEM_ID])
-        keep_prob.index = df.index
-        discarded_interactions = keep_prob < np.random.rand(n_interactions)
-        return df[~discarded_interactions].copy()
-    
-    def _cumulative_table(self, item_frequencies):
-
-        # Cria a tabela cumulativa com todos os itens
-        if self.negative_expoent > 0:
-            item_frequencies = np.power(item_frequencies, self.negative_expoent)
-        else:
-            item_frequencies = np.reciprocal(np.power(item_frequencies, abs(self.negative_expoent)))
-
-        total_count = np.sum(item_frequencies)
-        probabilities = item_frequencies / total_count
-        cum_table = np.cumsum(probabilities)
-        return (cum_table / cum_table[-1])
 
     def _generate_positive_data(self):
 
@@ -294,20 +148,6 @@ class Item2vec_temp_model:
         dataset = dataset.map(self._generate_batches, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True)
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
         return dataset
-                        
-    def _save_embeddings(self, epoch):
-
-        path_components = os.path.normpath(self.embedding_dir).split(os.sep)
-
-        if len(path_components) > 2 and path_components[2] == 'validation':
-            embedding_dir = self.embedding_dir + "@epochs={}".format(epoch)
-        else:
-            embedding_dir = self.embedding_dir
-
-        os.makedirs(embedding_dir, exist_ok=True)
-        item_embeddings = self.model.get_layer('target_embedding').get_weights()[0]
-        np.save(os.path.join(embedding_dir, kw.FILE_ITEMS_EMBEDDINGS), item_embeddings)
-        pickle.dump(self.data_repr, open(os.path.join(embedding_dir, kw.FILE_SPARSE_REPR), 'wb'))
 
     def fit(self, df):
 
@@ -356,11 +196,4 @@ class Item2vec_temp_model:
             verbose=2, 
             callbacks=[epoch_callback],
         )
-        
-    def get_embeddings(self):
-        embedding_layer = self.model.get_layer('target_embedding')
-        return embedding_layer.get_weights()[0]
-    
-    def get_datarepr(self):
-        return self.data_repr
     

@@ -31,11 +31,11 @@ else:
 
 print(tf.data.AUTOTUNE)
 
-DATASETS = ['DeliciousBookmarks']
+DATASETS = ['RetailRocket-Transactions']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty'
 
-RECOMMENDERS = ['Item2Vec_itemSim', 'TimeI2V_Disc_Aug']
+RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
