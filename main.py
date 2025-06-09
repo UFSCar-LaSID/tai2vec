@@ -7,7 +7,6 @@ import scripts as kw
 import numpy as np
 from scripts.dataset import get_datasets 
 
-
 from scripts.file_handlers import get_embeddings_filepath, get_recomendation_filepath, get_metrics_filepath, log_recommendations, get_all_embeddings_filepath, str_to_dict
 from scripts.recommenders import get_recommenders
 from scripts.recsys import remove_single_interactions, remove_cold_start
@@ -15,27 +14,27 @@ from scripts.metrics import Metrics
 
 import tensorflow as tf
 
-
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
-  try:
-    tf.config.set_logical_device_configuration(
-        gpus[0],
-        [tf.config.LogicalDeviceConfiguration(memory_limit=6096)])
-    logical_gpus = tf.config.list_logical_devices('GPU')
-    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-  except RuntimeError as e:
-    print(e)
+    for i, gpu in enumerate(gpus):
+        details = tf.config.experimental.get_device_details(gpu)
+        print(f"GPU {i}: {details.get('device_name', gpu.name)}")
+    try:
+        tf.config.set_logical_device_configuration(
+            gpus[0],
+            [tf.config.LogicalDeviceConfiguration(memory_limit=6096)])
+        logical_gpus = tf.config.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        print(e)
 else:
     print('No GPU available')
 
-print(tf.data.AUTOTUNE)
-
-DATASETS = ['RetailRocket-Transactions']
+DATASETS = ['AmazonBooks', 'AmazonBeauty', 'Taobao', 'CiaoDVD']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty'
 
-RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim']
+RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 

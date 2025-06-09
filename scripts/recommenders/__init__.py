@@ -4,11 +4,11 @@ import scripts as kw
 from scripts.recommenders.Mf_models.mf import ALS, BPR
 from scripts.recommenders.hyperparameters import ALS_HYPERPARAMETERS, BPR_HYPERPARAMETERS, ALS_ITEM_SIM_HYPERPARAMETERS, BPR_ITEM_SIM_HYPERPARAMETERS, ITEM2VEC_HYPERPARAMETERS, GEMSIM_HYPERPARAMETERS, ITEM2VEC_TEMP_HYPERPARAMETERS, ITEM2VEC_CONT_HYPERPARAMETERS
 from scripts.recommenders.itemSim import ItemSim
-from scripts.recommenders.Item2vec_models.Item2vec import Item2vec_model
-from scripts.recommenders.Item2vec_models.item2vec_gemsim import Word2Vec_gemsim
-from scripts.recommenders.Item2vec_models.Item2Vec_temp_Aug import Item2vec_temp_aug_model
-from scripts.recommenders.Item2vec_models.Item2vec_temporal import Item2vec_temp_model
-from scripts.recommenders.Item2vec_models.Item2vec_continuo import Item2vec_Temp_Cont_model
+from scripts.recommenders.Item2vec.Item2vec_base import Item2vec_model
+#from scripts.recommenders.Item2vec.Item2vec_gemsim import Word2Vec_gemsim
+from scripts.recommenders.Item2vec.Item2vec_disc import Item2vec_temp_model
+from scripts.recommenders.Item2vec.Item2Vec_disc_aug import Item2vec_temp_aug_model
+from scripts.recommenders.Item2vec.Item2vec_cont import Item2vec_Temp_Cont_model
 from scripts.recommenders.Mf_models.mf_temporal import ALS_time_model, BPR_time_model
 
 RECOMMENDERS_TABLE = pd.DataFrame(
@@ -19,7 +19,7 @@ RECOMMENDERS_TABLE = pd.DataFrame(
      [5,  'ALS_itemSim_temporal', "Time_ALS",         ALS_time_model,           ItemSim,      ALS_HYPERPARAMETERS,           ALS_ITEM_SIM_HYPERPARAMETERS],
      [6,  'BPR_itemSim_temporal', "Time_BPR",         BPR_time_model,           ItemSim,      BPR_HYPERPARAMETERS,           BPR_ITEM_SIM_HYPERPARAMETERS],
      [7,  'Item2Vec_itemSim',     "Item2Vec",         Item2vec_model,           ItemSim,      ITEM2VEC_HYPERPARAMETERS,      BPR_ITEM_SIM_HYPERPARAMETERS],
-     [8,  'Gemsim_itemSim',       "Item2Vec_Gemsim",  Word2Vec_gemsim,          ItemSim,      GEMSIM_HYPERPARAMETERS,        BPR_ITEM_SIM_HYPERPARAMETERS],
+     [8,  'Gemsim_itemSim',       "Item2Vec_Gemsim",  Item2vec_model,           ItemSim,      GEMSIM_HYPERPARAMETERS,        BPR_ITEM_SIM_HYPERPARAMETERS],
      [9,  'TimeI2V_Disc',         "TimeI2V_Disc",     Item2vec_temp_model,      ItemSim,      ITEM2VEC_TEMP_HYPERPARAMETERS, ITEM2VEC_TEMP_HYPERPARAMETERS],
      [10, 'TimeI2V_Disc_Aug',     "TimeI2V_Disc_Aug", Item2vec_temp_aug_model,  ItemSim,      ITEM2VEC_TEMP_HYPERPARAMETERS, ITEM2VEC_TEMP_HYPERPARAMETERS],
      [11, 'TimeI2V_Cont',         "TimeI2V_Cont",     Item2vec_Temp_Cont_model, ItemSim,      ITEM2VEC_CONT_HYPERPARAMETERS, ITEM2VEC_CONT_HYPERPARAMETERS]], 

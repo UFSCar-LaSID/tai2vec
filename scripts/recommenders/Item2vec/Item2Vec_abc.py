@@ -5,7 +5,7 @@ import tensorflow as tf
 from keras import layers, Model, initializers, regularizers, callbacks, Input
 from keras.optimizers import Adam
 import scripts as kw
-from scripts.recommenders.Item2vec_models.Data_repr import DataRepr
+from scripts.recommenders.Item2vec.Data_repr import DataRepr
 import abc
 import pickle
 

@@ -36,6 +36,26 @@ class DataRepr(object):
         grouped_items = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_ITEM_ID].agg(list)
         return grouped_items.tolist()
     
+    def create_column_list(self, df, column, transform = False):
+
+        if column not in df.columns:
+            raise Exception("Coluna não encontrada")
+
+        if transform:
+            df[kw.COLUMN_USER_ID] = self.le_users.transform(df[kw.COLUMN_USER_ID])
+            df[kw.COLUMN_ITEM_ID] = self.le_items.transform(df[kw.COLUMN_ITEM_ID])
+
+        if kw.COLUMN_DATETIME in df.columns:
+            sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
+        else:
+            sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_TIMESTAMP])
+
+        grouped_items = sorted_df.groupby(kw.COLUMN_USER_ID)[column].agg(list)
+        return grouped_items.tolist()
+    
+    def create_metrics_list(self, df, column):
+        return df.groupby(kw.COLUMN_USER_ID)[column].first().tolist()
+    
     def get_n_user(self):
         return len(self.le_users.classes_)
     

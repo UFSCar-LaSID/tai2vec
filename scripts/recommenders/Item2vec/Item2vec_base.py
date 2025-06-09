@@ -17,21 +17,21 @@ import scripts as kw
 
 import keras
 from keras import layers, Model, Input, regularizers, initializers, callbacks, optimizers
-from scripts.recommenders.Item2vec_models.Data_repr import DataRepr
-from scripts.recommenders.Item2vec_models.Item2Vec_declaration import Item2vec_abstract
+from scripts.recommenders.Item2vec.Data_repr import DataRepr
+from scripts.recommenders.Item2vec.Item2Vec_abc import Item2vec_abstract
 from keras.optimizers import Adam # type: ignore
 from keras.optimizers import schedules
       
 class Item2vec_model(Item2vec_abstract):
-    def __init__(self, embedding_dir, factors=100, window_size=-1, learning_rate=0.25, min_learning_rate = 0.000025 ,subsample = 0.001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75, epochs=200, lr_decay=0.95, regularization=-1):
-        super().__init__(embedding_dir, factors, window_size, learning_rate, min_learning_rate, subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025 ,subsample = 0.001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75, epochs=100, lr_decay=0.95, regularization=-1):
+        super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate, subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
 
     def _generate_positive_data(self):
 
         X_target, X_context = [], []
 
         arr = np.arange(len(self.interaction_list))
-        np.random.shuffle(arr)
+        #np.random.shuffle(arr)
 
         for user_id in arr:
 
@@ -96,13 +96,15 @@ class Item2vec_model(Item2vec_abstract):
         all_labels_flat = tf.reshape(all_labels, [-1])
         
         return (target_items_repeated, all_contexts_flat), all_labels_flat
-        
+
+
     def _data_generator(self):
 
         dataset = tf.data.Dataset.from_tensor_slices(self._generate_positive_data())
         #dataset = dataset.shuffle(buffer_size=self.batch_size * 10, reshuffle_each_iteration=True)
         dataset = dataset.batch(self.batch_size, num_parallel_calls=tf.data.AUTOTUNE)
         dataset = dataset.map(self._generate_batches, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True)
+        dataset = dataset.cache()
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
         return dataset
 

@@ -1,6 +1,6 @@
 import os
-#os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+#os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
 import pickle
 import numpy as np
@@ -10,17 +10,17 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics.pairwise import cosine_similarity
 
-import implicit
-import scripts as kw
-import gc
-
-import time
 import tensorflow as tf
 
+import implicit
+import scripts as kw
+
 import keras
-from keras import layers, Model, Input, regularizers, initializers, callbacks
-from scripts.recommenders.Item2vec_models.Data_repr import DataRepr
+from keras import layers, Model, Input, regularizers, initializers, callbacks, optimizers
+from scripts.recommenders.Item2vec.Data_repr import DataRepr
+from scripts.recommenders.Item2vec.Item2Vec_abc import Item2vec_abstract
 from keras.optimizers import Adam # type: ignore
+from keras.optimizers import schedules
 
 class MemoryPrintingCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
@@ -29,8 +29,8 @@ class MemoryPrintingCallback(tf.keras.callbacks.Callback):
           float(gpu_dict['current']) / (1024 ** 3), 
           float(gpu_dict['peak']) / (1024 ** 3)))
       
-class Item2vec_temp_aug_model(Item2vec_abstract):
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, epochs=200, time_exp=1, min_time_diff=300, lr_decay=0.95, regularization=-1):
+class Item2vec_temp_model(Item2vec_abstract):
+    def __init__(self, embedding_dir, factors=50, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025 ,subsample = 0.001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75, epochs=100, lr_decay=0.1, time_exp=1.5, min_time_diff=300, regularization=-1):
         super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate, subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
         self.time_exp = time_exp
         self.min_time_diff = min_time_diff
@@ -50,7 +50,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
             df_group['Q3'] = non_noise_diffs['timestamp_diff'].quantile(0.75)
 
             return df_group
-        
+
         if kw.COLUMN_TIMESTAMP in df.columns:
             df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
         elif kw.COLUMN_DATETIME in df.columns:
@@ -62,25 +62,26 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
 
         df['mask'] = df[kw.COLUMN_TIME_DIFF] >= df[kw.COLUMN_THRESHOLD]
         df['increment'] = df.groupby(kw.COLUMN_USER_ID)['mask'].cumsum()
+        df['old_user_id'] = df[kw.COLUMN_USER_ID]
+        df[kw.COLUMN_USER_ID] = df.groupby([kw.COLUMN_USER_ID, 'increment']).ngroup()
 
-        df.drop(columns=['mask'], inplace=True)
+        df.drop(columns=['mask', 'increment', 'Q1', 'Q3'], inplace=True)
 
         return df
 
     def _generate_positive_data(self):
 
-        X_target, X_context, sample_weights = [], [], []
+        X_target, X_context = [], []
 
         arr = np.arange(len(self.interaction_list))
-        np.random.shuffle(arr)
+        #np.random.shuffle(arr)
 
         for user_id in arr:
 
             X_target_aux, X_context_aux = [], []
 
             #Recebe a lista de itens do usuário atual
-            user_time_groups = np.array(self.time_groups[user_id])
-            curr_user = np.array(self.interaction_list[user_id])
+            curr_user = self.interaction_list[user_id]
             user_size = len(curr_user)
             
             if (user_size < 2):
@@ -88,13 +89,8 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
                 
             # Amostras positivas
             if self.window_size == -1:
-                user_repeat = np.repeat(range(user_size), user_size-1)
-                user_comb = np.tile(range(user_size), user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)]  
-
-                X_target_aux.extend(curr_user[user_repeat])
-                X_context_aux.extend(curr_user[user_comb])
-                sample_values = np.where((user_time_groups[user_repeat] - user_time_groups[user_comb]) == 0, 2, 1)
-                sample_weights.extend(sample_values)
+                X_target_aux.extend(np.repeat(curr_user, user_size-1))
+                X_context_aux.extend(np.tile(curr_user, user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)])
             else:
                 for i in range(user_size):
                     #Define o início e o fim da janela de contexto
@@ -102,30 +98,29 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
                     end_idx = min(user_size, i + self.window_size + 1)
                     # Cria um array de indices e remove o alvo
                     context_indices = np.arange(start_idx, end_idx)
+                    context_indices = context_indices[context_indices != i] 
                     # Calcula os ids positivos
                     X_target_aux.extend(np.repeat(curr_user[i], len(context_indices)))
                     X_context_aux.extend(np.array(curr_user)[context_indices])
-                    sample_values = np.where((user_time_groups[i] - user_time_groups[context_indices]) == 0, 2, 1)
-                    sample_weights.extend(sample_values)
 
             X_target.extend(X_target_aux)
             X_context.extend(X_context_aux)
-            self.steps_per_epoch = (len(X_target) // self.batch_size) + 1
 
-        return np.array(X_target), np.array(X_context), np.array(sample_weights)
-            
+        print("\nNumber of samples:", len(X_target))
+        print("Number of negative samples:", len(X_target) * self.negative_samples)
+        self.steps_per_epoch = (len(X_target) // self.batch_size) + 1
+
+        return np.array(X_target), np.array(X_context)
+    
     @tf.function
-    def _generate_batches(self, target_items, positive_contexts, weights):
+    def _generate_batches(self, target_items, positive_contexts):
 
         batch_size = tf.shape(target_items)[0]
 
+        # Repete cada target_item para cada contexto (positivo + negativos)
         target_items_repeated = tf.repeat(target_items, self.negative_samples + 1)
-        #weight_repeated = tf.repeat(weights, self.negative_samples + 1)
-
-        ones = tf.ones([tf.shape(weights)[0], self.negative_samples], dtype=weights.dtype)
-        weight_repeated = tf.reshape(tf.concat([tf.expand_dims(weights, axis=1), ones], axis=1), [-1])
         
-        #Seleciona os itens negativos
+        # Seleciona os itens negativos
         random_samples = self.tf_generator.uniform(shape=(batch_size * self.negative_samples,), minval=0.0, maxval=1.0, dtype=tf.float32)
         negative_contexts = tf.searchsorted(self.cumulative_table, random_samples, side='right')
         negative_contexts = tf.reshape(negative_contexts, (batch_size, self.negative_samples))
@@ -143,13 +138,15 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         all_contexts_flat = tf.reshape(all_contexts, [-1])
         all_labels_flat = tf.reshape(all_labels, [-1])
         
-        return (target_items_repeated, all_contexts_flat), all_labels_flat, weight_repeated
-    
-    def _data_generator(self, X_target, X_context_pos, sample_weights):
+        return (target_items_repeated, all_contexts_flat), all_labels_flat
+        
+    def _data_generator(self):
 
-        dataset = tf.data.Dataset.from_tensor_slices((X_target, X_context_pos, sample_weights))
+        dataset = tf.data.Dataset.from_tensor_slices(self._generate_positive_data())
+        #dataset = dataset.shuffle(buffer_size=self.batch_size * 10, reshuffle_each_iteration=True)
         dataset = dataset.batch(self.batch_size, num_parallel_calls=tf.data.AUTOTUNE)
-        dataset = dataset.map(self._generate_batches, num_parallel_calls=tf.data.AUTOTUNE)
+        dataset = dataset.map(self._generate_batches, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True)
+        dataset = dataset.cache()
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
         return dataset
 
@@ -159,7 +156,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         if os.path.exists(os.path.join(self.embedding_dir + epochs_string, kw.FILE_ITEMS_EMBEDDINGS)):
             return
         
-        #Define os callbacks
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="logs/" + self.embedding_dir)
         memory_printing_callback = MemoryPrintingCallback()
         epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
         reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
@@ -172,7 +169,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
             df = self.timestamp_diff(df)
         else:
             raise Exception("Timestamp column not found")
-        
+
         # Cria a representacao dos dados a partir do dataset
         self.data_repr = DataRepr(df)
         self.vocab_size = len(self.data_repr.le_items.classes_)
@@ -181,22 +178,23 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         df = self._subsample_items(df)
         self.interaction_list = self.data_repr.create_interaction_list(df)
 
-        sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
-        self.time_groups = sorted_df.groupby(kw.COLUMN_USER_ID)['increment'].agg(list).to_list()
-
         #Cria a tabela cumulativa que será utilizada para o negative sampling
         self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
         self.cumulative_table = tf.constant(self._cumulative_table(self.item_freq), dtype=tf.float32)
-                
-        X_target, X_context_pos, sample_weights = self._generate_positive_data()
-        data = self._data_generator(X_target, X_context_pos, sample_weights)
 
+        #Formato da saida -> ((batch_size,), (batch_size, negative_samples + 1)), (batch_size, negative_samples + 1)
+        data = self._data_generator()
+                
         self.model = self._build_model()
+
+        printc = self.PrintContextCallback(data)
+        lr_decay = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
 
         self.model.fit(
             data, 
             epochs=self.epochs,
             shuffle=False,
-            verbose=1, 
+            verbose=2, 
             callbacks=[epoch_callback],
         )
+    

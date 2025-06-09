@@ -23,9 +23,11 @@ GEMSIM_HYPERPARAMETERS = {
 
 ITEM2VEC_HYPERPARAMETERS = {
     'factors': [100],
-    'w_size': [-1, 5],
-    'learning_rate': [0.25, 0.0025],
+    'w_size': [5, 10, 15],
+    'learning_rate': [0.1, 0.01, 0.001],
     'subsample': [0.001],
+    'negative_samples': [15],
+    'batch_size': [2**14],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [1e-5, 1e-6],
 }
@@ -33,23 +35,27 @@ ITEM2VEC_HYPERPARAMETERS = {
 
 ITEM2VEC_TEMP_HYPERPARAMETERS = {
     'factors': [100],
-    'w_size': [-1, 5],
-    'learning_rate': [0.25, 0.0025],
+    'w_size': [5, 10, 15],
+    'learning_rate': [0.1, 0.01, 0.001],
     'subsample': [0.001],
+    'negative_samples': [15],
+    'batch_size': [2**14],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [1e-5, 1e-6],
-    'time_exp': [1.5],
+    'time_exp': [1, 2],
     'min_time_diff': [86400],
 }
 
 ITEM2VEC_CONT_HYPERPARAMETERS = {
-    'w_size': [-1],
-    'learning_rate': [0.25, 0.025, 0.0025],
-    'subsample': [0.01, 0.001, 0.0001],
-    'negative_exp': [-1, -0.75, -0.5, 0.5, 1],
-    'lr_decay': [0.96],
-    'regularization': [1e-6],
-    'curve_exp': [-1, 2, 3],
+    'factors': [100],
+    'w_size': [5, 10, 15],
+    'learning_rate': [0.1, 0.01, 0.001],
+    'subsample': [0.001],
+    'batch_size': [2**14],
+    'negative_samples': [15],
+    'negative_exp': [-1, -0.5, 0.5, 1],
+    'regularization': [1e-5, 1e-6],
+    'curve_exp': [-1, 2],
     'min_weight': [0.1],
     'weight_floor': [0.3],
     'min_time_diff': [86300]
