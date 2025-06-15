@@ -1,5 +1,5 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 import pickle
 import numpy as np
@@ -178,7 +178,9 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         negative_contexts = tf.reshape(negative_contexts, (batch_size, self.negative_samples))
         
         # Concatena o item positivo com o vetor de negativos
-        positive_contexts = tf.expand_dims(positive_contexts, axis=1) 
+        positive_contexts = tf.expand_dims(positive_contexts, axis=1)
+        positive_contexts = tf.cast(positive_contexts, dtype=tf.int32)
+        negative_contexts = tf.cast(negative_contexts, dtype=tf.int32)
         all_contexts = tf.concat([positive_contexts, negative_contexts], axis=1)
         
         # Define y = 1 para o item positivo e y = 0 para os negativos

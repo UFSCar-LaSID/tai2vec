@@ -2,6 +2,7 @@ from sklearn.model_selection import KFold, ParameterGrid
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import pandas as pd
 import scripts as kw
 import numpy as np
@@ -16,25 +17,29 @@ import tensorflow as tf
 
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
+
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+
     for i, gpu in enumerate(gpus):
         details = tf.config.experimental.get_device_details(gpu)
         print(f"GPU {i}: {details.get('device_name', gpu.name)}")
-    try:
+    '''try:
         tf.config.set_logical_device_configuration(
             gpus[0],
             [tf.config.LogicalDeviceConfiguration(memory_limit=6096)])
-        logical_gpus = tf.config.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        #logical_gpus = tf.config.list_logical_devices('GPU')
+        #print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
     except RuntimeError as e:
-        print(e)
+        print(e)'''
 else:
     print('No GPU available')
 
-DATASETS = ['AmazonBooks', 'AmazonBeauty', 'Taobao', 'CiaoDVD']
+DATASETS = ['AmazonBooks']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty'
 
-RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
+RECOMMENDERS = ['Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 

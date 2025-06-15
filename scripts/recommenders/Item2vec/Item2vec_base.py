@@ -1,6 +1,4 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-#os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
 import pickle
 import numpy as np
@@ -84,6 +82,8 @@ class Item2vec_model(Item2vec_abstract):
         
         # Concatena o item positivo com o vetor de negativos
         positive_contexts = tf.expand_dims(positive_contexts, axis=1) 
+        positive_contexts = tf.cast(positive_contexts, dtype=tf.int32)
+        negative_contexts = tf.cast(negative_contexts, dtype=tf.int32)
         all_contexts = tf.concat([positive_contexts, negative_contexts], axis=1)
         
         # Define y = 1 para o item positivo e y = 0 para os negativos
