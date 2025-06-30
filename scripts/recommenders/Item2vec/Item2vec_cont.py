@@ -199,7 +199,7 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         dataset = tf.data.Dataset.from_tensor_slices((X_target, X_context_pos, sample_weights))
         dataset = dataset.batch(self.batch_size, num_parallel_calls=tf.data.AUTOTUNE)
         dataset = dataset.map(self._generate_batches, num_parallel_calls=tf.data.AUTOTUNE)
-        dataset = dataset.cache()
+        #dataset = dataset.cache()
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
         return dataset
 

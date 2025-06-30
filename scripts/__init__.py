@@ -4,7 +4,7 @@ import numpy as np
 # Dados gerais do experimento
 RANDOM_STATE = 2002
 K_FOLD_SPLITS = 5
-TRAIN_MODE = 'gpu'
+TRAIN_MODE = 'cpu'
 
 # Nomes de arquivos da base de dados
 FILE_ITEMS = 'items.csv'

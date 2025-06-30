@@ -133,6 +133,8 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         
         # Concatena o item positivo com o vetor de negativos
         positive_contexts = tf.expand_dims(positive_contexts, axis=1) 
+        positive_contexts = tf.cast(positive_contexts, dtype=tf.int32)
+        negative_contexts = tf.cast(negative_contexts, dtype=tf.int32)
         all_contexts = tf.concat([positive_contexts, negative_contexts], axis=1)
         
         # Define y = 1 para o item positivo e y = 0 para os negativos
@@ -151,7 +153,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         dataset = tf.data.Dataset.from_tensor_slices((X_target, X_context_pos, sample_weights))
         dataset = dataset.batch(self.batch_size, num_parallel_calls=tf.data.AUTOTUNE)
         dataset = dataset.map(self._generate_batches, num_parallel_calls=tf.data.AUTOTUNE)
-        dataset = dataset.cache()
+        #dataset = dataset.cache()
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
         return dataset
 
