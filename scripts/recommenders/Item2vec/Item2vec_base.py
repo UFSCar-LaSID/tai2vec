@@ -1,12 +1,13 @@
 import os
-
 import pickle
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
 from sklearn.preprocessing import LabelEncoder
+from keras.mixed_precision import set_global_policy
 from sklearn.model_selection import train_test_split
 from sklearn.metrics.pairwise import cosine_similarity
+from utils.monitor import monitor
 
 import tensorflow as tf
 
@@ -19,10 +20,31 @@ from scripts.recommenders.Item2vec.Data_repr import DataRepr
 from scripts.recommenders.Item2vec.Item2Vec_abc import Item2vec_abstract
 from keras.optimizers import Adam # type: ignore
 from keras.optimizers import schedules
+
+import cupy as cp  # Added for GPU acceleration
+
+# Enable XLA and AMP
+set_global_policy("mixed_float16")
+tf.config.optimizer.set_jit(True)
       
 class Item2vec_model(Item2vec_abstract):
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025 ,subsample = 0.001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75, epochs=100, lr_decay=0.95, regularization=-1):
-        super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate, subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
+
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate=0.000025,
+                 subsample=0.001, batch_size=kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75,
+                 epochs=100, lr_decay=0.95, regularization=-1):
+        super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate,
+                         subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
+        # Placeholder for padded interaction matrix and lengths (CuPy arrays)
+        self.interaction_matrix = None
+        self.user_lengths = None
+
+    def _pad_interaction_list(self, interaction_list, pad_val=-1):
+        """Pad interaction_list of variable-length lists into a 2D CuPy array + lengths array."""
+        max_len = max(len(seq) for seq in interaction_list)
+        padded = np.full((len(interaction_list), max_len), pad_val, dtype=np.int32)
+        for i, seq in enumerate(interaction_list):
+            padded[i, :len(seq)] = seq
+        return cp.array(padded), cp.array([len(seq) for seq in interaction_list])
 
     def _generate_positive_data(self):
 
@@ -67,56 +89,54 @@ class Item2vec_model(Item2vec_abstract):
         self.steps_per_epoch = (len(X_target) // self.batch_size) + 1
 
         return np.array(X_target), np.array(X_context)
-    
-    def _generate_batches(self, target_items, positive_contexts):
 
+    @tf.function
+    def _generate_batches(self, target_items, positive_contexts):
         batch_size = tf.shape(target_items)[0]
 
-        # Repete cada target_item para cada contexto (positivo + negativos)
+        # Repeat each target_item for positive + negative samples
         target_items_repeated = tf.repeat(target_items, self.negative_samples + 1)
         
-        # Seleciona os itens negativos
+        # Negative samples
         random_samples = self.tf_generator.uniform(shape=(batch_size * self.negative_samples,), minval=0.0, maxval=1.0, dtype=tf.float32)
         negative_contexts = tf.searchsorted(self.cumulative_table, random_samples, side='right')
         negative_contexts = tf.reshape(negative_contexts, (batch_size, self.negative_samples))
         
-        # Concatena o item positivo com o vetor de negativos
+        # Concatenate positive and negative contexts
         positive_contexts = tf.expand_dims(positive_contexts, axis=1) 
         positive_contexts = tf.cast(positive_contexts, dtype=tf.int32)
         negative_contexts = tf.cast(negative_contexts, dtype=tf.int32)
         all_contexts = tf.concat([positive_contexts, negative_contexts], axis=1)
         
-        # Define y = 1 para o item positivo e y = 0 para os negativos
+        # Labels: 1 for positive, 0 for negatives
         positive_labels = tf.ones((batch_size, 1), dtype=tf.float32)
         negative_labels = tf.zeros((batch_size, self.negative_samples), dtype=tf.float32)
         all_labels = tf.concat([positive_labels, negative_labels], axis=1)
 
-        # Achata os contextos para corresponder aos target_items_repeated
+        # Flatten contexts and labels to match repeated targets
         all_contexts_flat = tf.reshape(all_contexts, [-1])
         all_labels_flat = tf.reshape(all_labels, [-1])
         
         return (target_items_repeated, all_contexts_flat), all_labels_flat
 
-
     def _data_generator(self):
-
-        dataset = tf.data.Dataset.from_tensor_slices(self._generate_positive_data())
-        #dataset = dataset.shuffle(buffer_size=self.batch_size * 10, reshuffle_each_iteration=True)
+        target_items, positive_contexts = self._generate_positive_data()
+        dataset = tf.data.Dataset.from_tensor_slices((target_items, positive_contexts))
         dataset = dataset.batch(self.batch_size, num_parallel_calls=tf.data.AUTOTUNE)
         dataset = dataset.map(self._generate_batches, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True)
-        #dataset = dataset.cache()
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
         return dataset
 
+    @monitor
     def fit(self, df):
-
         epochs_string = "@epochs={}".format(self.epochs)
         if os.path.exists(os.path.join(self.embedding_dir + epochs_string, kw.FILE_ITEMS_EMBEDDINGS)):
             return
         
         tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="logs/" + self.embedding_dir)
         epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
-        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
+        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3,
+                                                min_lr=self.min_learning_rate, cooldown=5, verbose=1)
         
         np.random.seed(kw.RANDOM_STATE)
         tf.random.set_seed(kw.RANDOM_STATE)
@@ -130,17 +150,20 @@ class Item2vec_model(Item2vec_abstract):
         df = self._subsample_items(df)
         self.interaction_list = self.data_repr.create_interaction_list(df)
 
-        #Cria a tabela cumulativa que será utilizada para o negative sampling
+        # Reset GPU padded arrays for new data
+        self.interaction_matrix, self.user_lengths = None, None
+
+        # Cria a tabela cumulativa para negative sampling
         self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
         self.cumulative_table = tf.constant(self._cumulative_table(self.item_freq), dtype=tf.float32)
 
-        #Formato da saida -> ((batch_size,), (batch_size, negative_samples + 1)), (batch_size, negative_samples + 1)
         data = self._data_generator()
                 
         self.model = self._build_model()
 
         printc = self.PrintContextCallback(data)
-        lr_decay = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
+        lr_decay = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3,
+                                               min_lr=self.min_learning_rate, cooldown=5, verbose=1)
 
         self.model.fit(
             data, 

@@ -38,30 +38,18 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
 
     def timestamp_diff(self, df):
 
-        #Calcula a diferença de tempo entre a iteração atual e a passada, por usuário
-        def calc_diff(df_group):
-
-            df_group = df_group.sort_values(kw.COLUMN_DATETIME)
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_DATETIME] - df_group[kw.COLUMN_DATETIME].shift(1)
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].fillna(pd.to_timedelta(0, unit='s'))
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].astype('int64')/ 10**9
-
-            non_noise_diffs = df_group[df_group['timestamp_diff'] > self.min_time_diff]
-            df_group['Q1'] = non_noise_diffs['timestamp_diff'].quantile(0.25)
-            df_group['Q3'] = non_noise_diffs['timestamp_diff'].quantile(0.75)
-
-            return df_group
-        
         if kw.COLUMN_TIMESTAMP in df.columns:
             df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
         elif kw.COLUMN_DATETIME in df.columns:
             df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME])
 
-        # Gera a coluna de diferença entre iterações
-        df = df.groupby(kw.COLUMN_USER_ID, group_keys=False).apply(calc_diff).reset_index(drop=True)
-        df[kw.COLUMN_THRESHOLD] = df['Q3'] + ((self.time_exp) * (df['Q3'] - df['Q1']))
+        df[kw.COLUMN_TIME_DIFF] = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_DATETIME].diff().dt.total_seconds().fillna(0).astype('int32')
+        q1 = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_DIFF].transform(lambda x: x[x > self.min_time_diff].quantile(0.25) if (x > self.min_time_diff).any() else np.inf)
+        q3 = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_DIFF].transform(lambda x: x[x > self.min_time_diff].quantile(0.75) if (x > self.min_time_diff).any() else np.inf)
 
-        df['mask'] = df[kw.COLUMN_TIME_DIFF] >= df[kw.COLUMN_THRESHOLD]
+        threshold = q3 + (self.time_exp * (q3 - q1))
+
+        df['mask'] = df[kw.COLUMN_TIME_DIFF] >= threshold
         df['increment'] = df.groupby(kw.COLUMN_USER_ID)['mask'].cumsum()
 
         df.drop(columns=['mask'], inplace=True)

@@ -13,9 +13,8 @@ from scripts.recommenders import get_recommenders
 from scripts.recsys import remove_single_interactions, remove_cold_start
 from scripts.metrics import Metrics
 from shutil import rmtree
+
 import tensorflow as tf
-import torch
-print("Using PyTorch version:", torch.__version__, "with CUDA support:", torch.cuda.is_available())
 
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
@@ -28,7 +27,7 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['AmazonBooks']
+DATASETS = ['CiaoDVD']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty'
 
@@ -131,12 +130,7 @@ for dataset in get_datasets(datasets=DATASETS):
         #Atualiza o treino concatenando a validação a ele, e remove os usuários de cold start do teste
         if PARAMETER_TUNING == 'on_validation':
             df_train = pd.concat([df_train, df_val_aux], axis=0)
-
-            print(df_train)
-
             df_test = remove_cold_start(df_train, df_test)
-
-            print(df_test)
 
         for recommender in get_recommenders(recommenders=RECOMMENDERS):
 

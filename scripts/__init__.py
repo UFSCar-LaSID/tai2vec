@@ -67,12 +67,12 @@ TEST = 'test'
 # Infos da recomendação
 TOP_N = 25 # Não faço ideia se está sendo usado e tenho medo de remover
 
-K = 100
+K = 30
 
 # Ate que top-N deve calcular as metricas
 N_EVAL = 20
 
 # Limite de memória
-MEM_SIZE_LIMIT = int(2**16) #22
+MEM_SIZE_LIMIT = int(2**14) #22
 
 EVALUATION_PARAMETER = 'NDCG@15'

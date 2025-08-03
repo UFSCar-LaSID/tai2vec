@@ -32,50 +32,68 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         self.weight_floor = weight_floor
     
     def timestamp_cum(self, df):
-
-        #Calcula a diferença de tempo entre a iteração atual e a passada, por usuário
-        def calc_diff(df_group):
+        """
+        Fast timestamp cumulative calculation using vectorized operations with scaler.
+        """
+        # Handle datetime conversion
+        if kw.COLUMN_TIMESTAMP in df.columns:
+            df = df.copy()
+            df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
+        elif kw.COLUMN_DATETIME in df.columns:
+            df = df.copy()
+            df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME])
+        
+        # Sort once
+        df = df.sort_values([kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
+        
+        # Calculate time differences
+        df[kw.COLUMN_TIME_DIFF] = (
+            df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_DATETIME]
+            .diff()
+            .dt.total_seconds()
+            .fillna(0)
+        )
+        
+        # Create mask for valid differences (non-noise)
+        valid_mask = df[kw.COLUMN_TIME_DIFF] > self.min_time_diff
+        
+        # Create a temporary column with only valid differences
+        df['valid_diffs'] = df[kw.COLUMN_TIME_DIFF].where(valid_mask)
+        
+        # Calculate Q1, Q3 and IQR using transform (vectorized)
+        q1 = df.groupby(kw.COLUMN_USER_ID)['valid_diffs'].transform('quantile', 0.25).fillna(0)
+        q3 = df.groupby(kw.COLUMN_USER_ID)['valid_diffs'].transform('quantile', 0.75).fillna(0)
+        iqr = q3 - q1
+        
+        # Calculate mean and std from valid diffs only (vectorized)
+        df[kw.COLUMN_MEAN] = df.groupby(kw.COLUMN_USER_ID)['valid_diffs'].transform('mean').fillna(0)
+        df[kw.COLUMN_STD] = df.groupby(kw.COLUMN_USER_ID)['valid_diffs'].transform('std').fillna(0)
+        
+        # Clip time_diff using Q3 + 1.5 * IQR (vectorized)
+        threshold = 1.5
+        upper_clip = q3 + (threshold * iqr)
+        df[kw.COLUMN_TIME_DIFF] = df[kw.COLUMN_TIME_DIFF].clip(upper=upper_clip)
+        
+        # Calculate cumulative sum per user (vectorized)
+        df[kw.COLUMN_TIME_CUMSUM] = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_DIFF].cumsum()
+        
+        # Apply MinMaxScaler normalization per user group using transform
+        def scale_group(group):
+            if len(group) == 1:
+                return pd.Series([self.min_weight], index=group.index)
             
-            max_range = 1
-            min_range = self.min_weight
-            
-            df_group = df_group.sort_values(kw.COLUMN_DATETIME)
-            scaler = MinMaxScaler(feature_range=(min_range,max_range))
-            
-            #Calcula a diferença de tempo entre iterações
-            df_group[kw.COLUMN_TIME_DIFF]  = df_group[kw.COLUMN_DATETIME] - df_group[kw.COLUMN_DATETIME].shift(1)
-            df_group[kw.COLUMN_TIME_DIFF]  = df_group[kw.COLUMN_TIME_DIFF].fillna(pd.to_timedelta(0, unit='s'))
-            df_group[kw.COLUMN_TIME_DIFF]  = df_group[kw.COLUMN_TIME_DIFF].astype('int64')/ 10**9
-
-            #Desconsidera interações que aconteceram em um pequeno intervalo de tempo
-            non_noise_diffs = df_group[df_group['timestamp_diff'] > self.min_time_diff]
-            
-            #Trata outliers para que eles não afetem tanto o resultdo final 
-            Q1 = non_noise_diffs[kw.COLUMN_TIME_DIFF].quantile(0.25)
-            Q3 = non_noise_diffs[kw.COLUMN_TIME_DIFF].quantile(0.75)
-            IQR = Q3 - Q1
-            
-            threshold = 1.5
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].clip(upper=(Q3 + threshold * IQR))        
-            df_group[kw.COLUMN_TIME_CUMSUM] = df_group[kw.COLUMN_TIME_DIFF].cumsum()
-            df_group[kw.COLUMN_MEAN] = non_noise_diffs[kw.COLUMN_TIME_DIFF].mean()
-            df_group[kw.COLUMN_STD] = non_noise_diffs[kw.COLUMN_TIME_DIFF].std()
-            df_group[kw.COLUMN_MEAN] = df_group[kw.COLUMN_MEAN].fillna(0)
-            df_group[kw.COLUMN_STD] = df_group[kw.COLUMN_STD].fillna(0)
-            df_group[kw.COLUMN_TIME_CUMSUM_NORM] = scaler.fit_transform(df_group[[kw.COLUMN_TIME_CUMSUM]])
-            #df_group['scale'] = scaler.scale_
-            #print(df_group[kw.COLUMN_TIME_CUMSUM_NORM])
-            #print("Escala dos usuários", scaler.scale_)
-            #print(df_group['scale'])
-            
-            return df_group
-            
-        if 'timestamp' in df.columns:
-            df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
-            
-        # Gera a coluna de diferença entre iterações
-        df = df.groupby(kw.COLUMN_USER_ID, group_keys=False).apply(calc_diff).reset_index(drop=True)
-
+            scaler = MinMaxScaler(feature_range=(self.min_weight, 1))
+            scaled = scaler.fit_transform(group.values.reshape(-1, 1)).flatten()
+            return pd.Series(scaled, index=group.index)
+        
+        df[kw.COLUMN_TIME_CUMSUM_NORM] = (
+            df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_CUMSUM]
+            .transform(scale_group)
+        )
+        
+        # Clean up temporary column
+        df = df.drop(columns=['valid_diffs'])
+        
         return df
 
     def _calculate_weights(self, distances, mean, std): 

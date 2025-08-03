@@ -8,6 +8,11 @@ import scripts as kw
 from scripts.recommenders.Item2vec.Data_repr import DataRepr
 import abc
 import pickle
+from keras.mixed_precision import set_global_policy
+
+# Enable XLA and AMP
+set_global_policy("mixed_float16")
+tf.config.optimizer.set_jit(True)
 
 class Item2vec_abstract(abc.ABC):
     def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025 ,subsample = 0.001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75, epochs=200, lr_decay=0.95, regularization=-1):
@@ -19,7 +24,7 @@ class Item2vec_abstract(abc.ABC):
         self.negative_samples = negative_samples
         self.negative_expoent = negative_exp
         self.learning_rate = learning_rate
-        self.epochs = epochs
+        self.epochs = 10
         self.batch_size = batch_size
         self.lr_decay = lr_decay
         self.regularization = regularization
@@ -67,7 +72,7 @@ class Item2vec_abstract(abc.ABC):
             decay_rate = self.lr_decay, staircase=True)
         
         model = Model(inputs=[target_item, context_item], outputs=prediction)
-        model.compile(optimizer=Adam(learning_rate=lr_schedule), loss='binary_crossentropy')
+        model.compile(optimizer=Adam(learning_rate=lr_schedule), loss='binary_crossentropy', jit_compile=True)
 
         return model
     
@@ -79,7 +84,7 @@ class Item2vec_abstract(abc.ABC):
 
         def on_epoch_end(self, epoch, logs=None):
             #if ((epoch + 1) % self.save_interval == 0) or (epoch+1 == 5) or (epoch+1 == 10):
-            if (epoch+1 == 5) or (epoch+1 == 10) or (epoch+1 == 20) or (epoch+1 == 50) or (epoch+1 == 100) or (epoch+1 == 150) or (epoch+1 == 200):
+            if (epoch+1 == 5) or (epoch+1 == 10) or (epoch+1 == 20) or (epoch+1 == 30) or (epoch+1 == 40) or (epoch+1 == 50) or (epoch+1 == 75)  or (epoch+1 == 100) or (epoch+1 == 150) or (epoch+1 == 200):
                 print("\nSaving embeddings...")
                 self.outer._save_embeddings(epoch+1)
 

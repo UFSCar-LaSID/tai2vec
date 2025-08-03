@@ -1,0 +1,30 @@
+name: recsys_torch
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12.*
+  - pip
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - tqdm
+  - jupyter
+  - notebook
+  - cuda-toolkit=12.*
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pip:
+    - tensorflow-cpu
+    - keras
+    - nvidia-ml-py3
+    - psutil
+    - implicit
+    - cupy-cuda12x
+    - memory_profiler

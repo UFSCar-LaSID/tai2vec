@@ -21,6 +21,9 @@ from scripts.recommenders.Item2vec.Data_repr import DataRepr
 from scripts.recommenders.Item2vec.Item2Vec_abc import Item2vec_abstract
 from keras.optimizers import Adam # type: ignore
 from keras.optimizers import schedules
+from keras import backend as K
+import time
+
 
 class MemoryPrintingCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
@@ -37,36 +40,22 @@ class Item2vec_temp_model(Item2vec_abstract):
 
     def timestamp_diff(self, df):
 
-        #Calcula a diferença de tempo entre a iteração atual e a passada, por usuário
-        def calc_diff(df_group):
-
-            df_group = df_group.sort_values(kw.COLUMN_DATETIME)
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_DATETIME] - df_group[kw.COLUMN_DATETIME].shift(1)
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].fillna(pd.to_timedelta(0, unit='s'))
-            df_group[kw.COLUMN_TIME_DIFF] = df_group[kw.COLUMN_TIME_DIFF].astype('int64')/ 10**9
-
-            non_noise_diffs = df_group[df_group['timestamp_diff'] > self.min_time_diff]
-            df_group['Q1'] = non_noise_diffs['timestamp_diff'].quantile(0.25)
-            df_group['Q3'] = non_noise_diffs['timestamp_diff'].quantile(0.75)
-
-            return df_group
-
         if kw.COLUMN_TIMESTAMP in df.columns:
             df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
         elif kw.COLUMN_DATETIME in df.columns:
             df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME])
 
-        # Gera a coluna de diferença entre iterações
-        df = df.groupby(kw.COLUMN_USER_ID, group_keys=False).apply(calc_diff).reset_index(drop=True)
-        df[kw.COLUMN_THRESHOLD] = df['Q3'] + ((self.time_exp) * (df['Q3'] - df['Q1']))
-
-        df['mask'] = df[kw.COLUMN_TIME_DIFF] >= df[kw.COLUMN_THRESHOLD]
+        df[kw.COLUMN_TIME_DIFF] = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_DATETIME].diff().dt.total_seconds().fillna(0).astype('int32')
+    
+        q1 = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_DIFF].transform(lambda x: x[x > self.min_time_diff].quantile(0.25) if (x > self.min_time_diff).any() else np.inf)
+        q3 = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_DIFF].transform(lambda x: x[x > self.min_time_diff].quantile(0.75) if (x > self.min_time_diff).any() else np.inf)
+        threshold = q3 + (self.time_exp * (q3 - q1))
+        
+        df['mask'] = df[kw.COLUMN_TIME_DIFF] >= threshold
         df['increment'] = df.groupby(kw.COLUMN_USER_ID)['mask'].cumsum()
         df['old_user_id'] = df[kw.COLUMN_USER_ID]
         df[kw.COLUMN_USER_ID] = df.groupby([kw.COLUMN_USER_ID, 'increment']).ngroup()
-
-        df.drop(columns=['mask', 'increment', 'Q1', 'Q3'], inplace=True)
-
+        
         return df
 
     def _generate_positive_data(self):
@@ -74,7 +63,6 @@ class Item2vec_temp_model(Item2vec_abstract):
         X_target, X_context = [], []
 
         arr = np.arange(len(self.interaction_list))
-        #np.random.shuffle(arr)
 
         for user_id in arr:
 
@@ -168,20 +156,20 @@ class Item2vec_temp_model(Item2vec_abstract):
         self.tf_generator = tf.random.Generator.from_seed(kw.RANDOM_STATE)
 
         if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
-            df = self.timestamp_diff(df)
+            timediff_df = self.timestamp_diff(df.copy())
         else:
             raise Exception("Timestamp column not found")
 
         # Cria a representacao dos dados a partir do dataset
-        self.data_repr = DataRepr(df)
+        self.data_repr = DataRepr(timediff_df)
         self.vocab_size = len(self.data_repr.le_items.classes_)
 
         # Reduz o dataset com subsampling e cria a lista de interações
-        df = self._subsample_items(df)
+        df = self._subsample_items(timediff_df)
         self.interaction_list = self.data_repr.create_interaction_list(df)
 
         #Cria a tabela cumulativa que será utilizada para o negative sampling
-        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
+        self.item_freq = list(timediff_df.groupby(kw.COLUMN_ITEM_ID).size().values)
         self.cumulative_table = tf.constant(self._cumulative_table(self.item_freq), dtype=tf.float32)
 
         #Formato da saida -> ((batch_size,), (batch_size, negative_samples + 1)), (batch_size, negative_samples + 1)
@@ -199,4 +187,6 @@ class Item2vec_temp_model(Item2vec_abstract):
             verbose=2, 
             callbacks=[epoch_callback],
         )
+
+        K.clear_session()
     
