@@ -6,13 +6,15 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
 class ItemSim(object):
-    def __init__(self, embeddings_filepath, k=kw.K, **model_params):
+    def __init__(self, embeddings_filepath, k=kw.K, use_norm='True'):
         self.k = k
         self.sparse_repr = pickle.load(open(os.path.join(embeddings_filepath, kw.FILE_SPARSE_REPR), 'rb'))
         self.embeddings = np.load(open(os.path.join(embeddings_filepath, kw.FILE_ITEMS_EMBEDDINGS), 'rb'), allow_pickle=True)
         #self.embeddings = self.embeddings / np.sqrt(np.sum(self.embeddings**2, axis=1)).reshape(-1,1)
-        norms = np.linalg.norm(self.embeddings, axis=1, keepdims=True)
-        self.embeddings = self.embeddings / (norms + 1e-8)
+
+        if use_norm == 'True':
+            norms = np.linalg.norm(self.embeddings, axis=1, keepdims=True)
+            self.embeddings = self.embeddings / (norms + 1e-8)
 
     def fit(self, df):
         
@@ -41,7 +43,7 @@ class ItemSim(object):
             self.item_item_sim = pd.concat([self.item_item_sim, batch_df])
         
         # Convert neighbor column to int
-        self.item_item_sim['neighbor'] = self.item_item_sim['neighbor'].astype(int)
+        #self.item_item_sim['neighbor'] = self.item_item_sim['neighbor'].astype(int)
         
         self.df_train = df.copy()
 

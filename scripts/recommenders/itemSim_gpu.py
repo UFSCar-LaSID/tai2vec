@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 import cupy as cp
 import time
+import torch
 
 class ItemSim(object):
     def __init__(self, embeddings_filepath, k=kw.K, **model_params):
@@ -24,7 +25,7 @@ class ItemSim(object):
         n_items = self.embeddings.shape[0]
         items_per_batch = int(2**6)
 
-        embeddings_gpu = cp.asarray(self.embeddings)
+        embeddings_gpu = torch.tensor(self.embeddings, dtype=torch.float32).cuda()
         sim_data = []
 
         for i in range(0, n_items, items_per_batch):
@@ -32,23 +33,23 @@ class ItemSim(object):
             batch_start = i
             batch_end = min(i + items_per_batch, n_items)
 
-            batch_items = cp.arange(batch_start, batch_end)
+            batch_items = torch.arange(batch_start, batch_end, device='cuda')
             batch_embs = embeddings_gpu[batch_start:batch_end]
-            batch_sims = cp.dot(batch_embs, embeddings_gpu.T)
+            batch_sims = torch.matmul(batch_embs, embeddings_gpu.t())
 
-            cp.fill_diagonal(batch_sims[:, batch_start:batch_end], -np.inf)
+            # Set diagonal to -inf for the batch
+            diag_indices = torch.arange(batch_end - batch_start, device='cuda')
+            batch_sims[diag_indices, batch_start + diag_indices] = float('-inf')
 
-            rows = cp.repeat(batch_items, self.k)
-            top_k_idx = cp.argpartition(-batch_sims, kth=self.k - 1, axis=1)[:, :self.k]
-            top_k_vals = -cp.partition(-batch_sims, kth=self.k - 1, axis=1)[:, :self.k]
-
-            sim_data.append(cp.asnumpy(cp.column_stack([rows, top_k_idx.flatten(), top_k_vals.flatten()])))
+            rows = batch_items.repeat_interleave(self.k)
+            top_k_vals, top_k_idx = torch.topk(batch_sims, self.k, dim=1)
+            sim_data.append(
+                torch.stack([rows, top_k_idx.flatten(), top_k_vals.flatten()], dim=1).cpu().numpy()
+            )
 
         sim_matrix_cpu = np.vstack(sim_data)
 
         self.item_item_sim = pd.DataFrame(sim_matrix_cpu, columns=[kw.COLUMN_ITEM_ID, 'neighbor', 'sim'])
-
-        cp._default_memory_pool.free_all_blocks()
 
         elapsed_time = time.time() - start_time
         print(f"[ItemSim.fit] Tempo decorrido: {elapsed_time:.2f} segundos")

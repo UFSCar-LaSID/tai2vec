@@ -10,10 +10,14 @@ def _dict_to_str(dictionary):
 
 def str_to_dict(string):
     def convert_value(value):
-        return int(value) if value.isdigit() else float(value)
+        if value.isdigit():
+            return int(value)
+        try:
+            return float(value)
+        except ValueError:
+            return value 
 
     return {key: convert_value(value) for key, value in (item.split('=') for item in string.split('@'))}
-
 
 def get_all_embeddings_filepath(file_type, dataset_name, recommender_name):
 

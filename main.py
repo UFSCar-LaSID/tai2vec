@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'  # Enable synchronous CUDA for better error messages
 import pandas as pd
 import scripts as kw
 import numpy as np
@@ -28,17 +29,17 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['AmazonBooks']
+DATASETS = ['taobao']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
-#'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty'
+#'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['Item2Vec_itemSim']
+RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
 # 'Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont', 'Gemsim_itemSim'
 
-MODES = ['Recommend', 'Evaluate']                                   
+MODES = ['Recommend', 'Evaluate']                           
 # 'Recommend', 'Evaluate'
 
 PARAMETER_TUNING = 'on_validation'
@@ -50,7 +51,8 @@ def train_embeddings(df, embeddings_filepath, embedding_model, parameters):
     return Embedding_model
 
 def recommend(df_train, df_test, embeddings_filepath, recomendation_filepath, recommender_model, parameters):
-    model = recommender_model(embeddings_filepath=embeddings_filepath)
+    rec_param = str_to_dict(parameters)
+    model = recommender_model(embeddings_filepath=embeddings_filepath, use_norm=rec_param.get('recomender_norm', True))
     model.fit(df_train)
     recommendations = model.recommend(df_test)
     return log_recommendations(recomendation_filepath, parameters, df_test, recommendations)
@@ -131,12 +133,7 @@ for dataset in get_datasets(datasets=DATASETS):
         #Atualiza o treino concatenando a validação a ele, e remove os usuários de cold start do teste
         if PARAMETER_TUNING == 'on_validation':
             df_train = pd.concat([df_train, df_val_aux], axis=0)
-
-            print(df_train)
-
             df_test = remove_cold_start(df_train, df_test)
-
-            print(df_test)
 
         for recommender in get_recommenders(recommenders=RECOMMENDERS):
 
@@ -174,6 +171,7 @@ for dataset in get_datasets(datasets=DATASETS):
 
     # Remove as pastas de validação
     rmtree(os.path.join('results', 'recommendations', kw.VALIDATION, dataset_name))
+    #rmtree(os.path.join('results', 'embeddings', kw.VALIDATION, dataset_name))
 
 
             

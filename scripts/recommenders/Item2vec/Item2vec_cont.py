@@ -1,7 +1,9 @@
 import os
-#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+# Disable mixed precision and XLA for stability with large datasets
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
 
-import pickle
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
@@ -10,18 +12,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MinMaxScaler
 
-import tensorflow as tf
-
-import implicit
+# PyTorch imports
+import torch
+import torch.nn as nn
 import scripts as kw
 
-import time
-
-import keras
-from keras import layers, Model, Input, regularizers, initializers, callbacks
-from scripts.recommenders.Item2vec.Data_repr import DataRepr
-from scripts.recommenders.Item2vec.Item2Vec_abc import Item2vec_abstract
-from keras.optimizers import Adam # type: ignore
+from .Data_repr import DataRepr
+from .Item2Vec_abc import Item2vec_abstract
+from .torchmodules.pytorch_dataset import Item2VecDataset
+from .torchmodules.pytorch_trainer import Item2VecTrainer
+from .torchmodules.pytorch_model import Item2VecModel
+from .torchmodules.pytorch_dataset import create_item2vec_dataloader
       
 class Item2vec_Temp_Cont_model(Item2vec_abstract):
     def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, min_weight = 0.3, curve_exp = 2, epochs=100, min_time_diff=60, weight_floor=0.3, lr_decay=0.96, regularization=-1):
@@ -178,72 +179,26 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
 
         return np.array(X_target), np.array(X_context), np.array(sample_weights)
 
-
-    @tf.function
-    def _generate_batches(self, target_items, positive_contexts, weights):
-
-        batch_size = tf.shape(target_items)[0]
-
-        target_items_repeated = tf.repeat(target_items, self.negative_samples + 1)
-        #weight_repeated = tf.repeat(weights, self.negative_samples + 1)
-
-        ones = tf.ones([tf.shape(weights)[0], self.negative_samples], dtype=weights.dtype)
-        weight_repeated = tf.reshape(tf.concat([tf.expand_dims(weights, axis=1), ones], axis=1), [-1])
-        
-        #Seleciona os itens negativos
-        random_samples = self.tf_generator.uniform(shape=(batch_size * self.negative_samples,), minval=0.0, maxval=1.0, dtype=tf.float32)
-        negative_contexts = tf.searchsorted(self.cumulative_table, random_samples, side='right')
-        negative_contexts = tf.reshape(negative_contexts, (batch_size, self.negative_samples))
-        
-        # Concatena o item positivo com o vetor de negativos
-        positive_contexts = tf.expand_dims(positive_contexts, axis=1)
-        positive_contexts = tf.cast(positive_contexts, dtype=tf.int32)
-        negative_contexts = tf.cast(negative_contexts, dtype=tf.int32)
-        all_contexts = tf.concat([positive_contexts, negative_contexts], axis=1)
-        
-        # Define y = 1 para o item positivo e y = 0 para os negativos
-        positive_labels = tf.ones((batch_size, 1), dtype=tf.float32)
-        negative_labels = tf.zeros((batch_size, self.negative_samples), dtype=tf.float32)
-        all_labels = tf.concat([positive_labels, negative_labels], axis=1)
-
-        # Achata os contextos para corresponder aos target_items_repeated
-        all_contexts_flat = tf.reshape(all_contexts, [-1])
-        all_labels_flat = tf.reshape(all_labels, [-1])
-        
-        return (target_items_repeated, all_contexts_flat), all_labels_flat, weight_repeated
-    
-    def _data_generator(self, X_target, X_context_pos, sample_weights):
-
-        dataset = tf.data.Dataset.from_tensor_slices((X_target, X_context_pos, sample_weights))
-        dataset = dataset.batch(self.batch_size, num_parallel_calls=tf.data.AUTOTUNE)
-        dataset = dataset.map(self._generate_batches, num_parallel_calls=tf.data.AUTOTUNE)
-        #dataset = dataset.cache()
-        dataset = dataset.prefetch(tf.data.AUTOTUNE)
-        return dataset
-
     def fit(self, df):
-
-        epochs_string = "@epochs={}".format(self.epochs)
-        if os.path.exists(os.path.join(self.embedding_dir + epochs_string, kw.FILE_ITEMS_EMBEDDINGS)):
-            return
         
         np.random.seed(kw.RANDOM_STATE)
-        self.tf_generator = tf.random.Generator.from_seed(kw.RANDOM_STATE)
+        torch.manual_seed(kw.RANDOM_STATE)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(kw.RANDOM_STATE)
 
         if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
-            df = self.timestamp_cum(df)
+            df = self.timestamp_cum(df.copy())
         else:
             raise Exception("Timestamp column not found")
-
-        # Cria a representacao dos dados a partir do dataset
-        self.data_repr = DataRepr(df)
-        self.vocab_size = len(self.data_repr.le_items.classes_)
 
         # Reduz o dataset com subsampling e cria a lista de interações e de pesos
         df = self._subsample_items(df)
 
+        # Cria a representacao dos dados a partir do dataset
+        self.data_repr = DataRepr(df, temporal_sorting=True)
+
         # Cria as listas de interações e pesos
-        self.interaction_list = self.data_repr.create_column_list(df, kw.COLUMN_ITEM_ID, transform=True)
+        self.interaction_list = self.data_repr.create_column_list(df, kw.COLUMN_ITEM_ID)
         self.cumsum_list = self.data_repr.create_column_list(df, kw.COLUMN_TIME_CUMSUM)
         self.norm_weight_list = self.data_repr.create_column_list(df, kw.COLUMN_TIME_CUMSUM_NORM)
         self.mean_list = self.data_repr.create_metrics_list(df, kw.COLUMN_MEAN)
@@ -251,21 +206,35 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
 
         #Cria a tabela cumulativa que será utilizada para o negative sampling
         self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
-        self.cumulative_table = tf.constant(self._cumulative_table(self.item_freq), dtype=tf.float32)
+        self.cumulative_table = self._cumulative_table(self.item_freq)
 
-        #Define os callbacks
-        epoch_callback = self.SaveEmbeddingsCallback(outer=self, save_interval=20)
-        reduce_lr = callbacks.ReduceLROnPlateau(monitor='loss', factor=self.lr_decay, patience=3, min_lr=self.min_learning_rate, cooldown=5, verbose=1)
+        X_target, X_context, sample_weights = self._generate_positive_data()
+
+        # Calculate vocab_size to accommodate the full range of item IDs
+        vocab_size = df[kw.COLUMN_ITEM_ID].max() + 1
+
+        self.model = Item2VecModel(
+            vocab_size=df[kw.COLUMN_ITEM_ID].nunique(), 
+            embedding_size=self.embedding_size, 
+            learning_rate=self.learning_rate, 
+            lr_decay=self.lr_decay, 
+            regularization=self.regularization
+        ).to('cuda' if torch.cuda.is_available() else 'cpu')
+
+        max_workers = os.cpu_count()
+        print(f"Using {max_workers} workers for DataLoader")
         
-        X_target, X_context_pos, sample_weights = self._generate_positive_data()
-        data = self._data_generator(X_target, X_context_pos, sample_weights)
-
-        self.model = self._build_model()
-
-        self.model.fit(
-            data, 
-            epochs=self.epochs,
+        dataloader = create_item2vec_dataloader(
+            X_target=X_target, 
+            X_context=X_context, 
+            cumulative_table=self.cumulative_table, 
+            negative_samples=self.negative_samples,
+            batch_size=self.batch_size, 
+            weights=sample_weights, 
             shuffle=False,
-            verbose=1, 
-            callbacks=[epoch_callback],
+            num_workers=max_workers
         )
+
+        trainer = Item2VecTrainer(self, self.model)
+        self.model = trainer.train(dataloader, self.data_repr)
+        

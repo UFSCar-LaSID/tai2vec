@@ -1,6 +1,9 @@
 import csv
 import numpy as np
 
+DATASET_PATH = 'datasets/'
+#DATASET_PATH = '/storage/recsys/1-datasets'
+
 # Dados gerais do experimento
 RANDOM_STATE = 2002
 K_FOLD_SPLITS = 5

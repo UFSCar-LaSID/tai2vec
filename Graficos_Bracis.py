@@ -12,6 +12,7 @@ from sklearn.preprocessing import MinMaxScaler
 import scripts as kw
 
 import warnings
+import webbrowser
 warnings.filterwarnings('once')
 
 best_column = kw.EVALUATION_PARAMETER
@@ -107,4 +108,15 @@ for dataset_name in main_file:
     figure_name = dataset_name + "_" + curr_metric + ".html"
     fig.write_html(os.path.join("figures", figure_name)) 
     fig.show()
+    # Open the HTML file in Google Chrome
+    html_path = os.path.abspath(os.path.join("figures", figure_name))
+    try:
+        browser = webbrowser.get('chrome')
+    except webbrowser.Error:
+        try:
+            browser = webbrowser.get('google-chrome')
+        except webbrowser.Error:
+            browser = None
+    if browser:
+        browser.open(f'file://{html_path}')
     
