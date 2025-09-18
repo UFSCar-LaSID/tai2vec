@@ -40,21 +40,18 @@ class Item2VecModel(nn.Module):
         return torch.einsum("be,be->b", target_emb, context_emb)  # dot product
     
     def get_item_embeddings(self):
-        return ((self.target_embedding.weight + self.context_embedding.weight) / 2).detach().cpu().numpy()
-        #return self.target_embedding.weight.detach().cpu().numpy()
+        #return ((self.target_embedding.weight + self.context_embedding.weight) / 2).detach().cpu().numpy()
+        return self.target_embedding.weight.detach().cpu().numpy()
     
     def create_optimizer(self):
-        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.regularization if self.regularization > 0 else 0)
+        optimizer = optim.AdamW(self.parameters(), lr=self.learning_rate, weight_decay=self.regularization if self.regularization > 0 else 0)
         scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.lr_decay)
         return optimizer, scheduler
     
     def compute_loss(self, targets, contexts, labels, weights=None):
+
         logits = self.forward(targets, contexts)  # [B]
-        bce_loss = nn.BCEWithLogitsLoss(reduction="none")(logits, labels)
 
-        if weights is None:
-            weights = torch.ones_like(labels)
-        
-        loss = (bce_loss * weights).mean()
+        bce_loss = nn.BCEWithLogitsLoss(reduction="mean", weight=weights)(logits, labels)
 
-        return loss
+        return bce_loss

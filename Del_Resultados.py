@@ -1,11 +1,11 @@
 import os
 import shutil
 
-datasets = ['MovieLens']
+datasets = ['ciaodvd']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #  'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize'
 
-recommenders = ['Item2Vec_itemSim', 'TimeI2V_Disc']
+recommenders = ['Item2Vec_itemSim', 'TimeI2V_Disc_Aug']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 

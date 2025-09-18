@@ -62,9 +62,8 @@ def create_item2vec_dataloader(X_target, X_context, cumulative_table, negative_s
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers= num_workers > 0,
+        num_workers= 8,
+        persistent_workers = 8,
         collate_fn=dataset.negative_sampling_collate,
-        prefetch_factor=None
+        prefetch_factor=4
     )
