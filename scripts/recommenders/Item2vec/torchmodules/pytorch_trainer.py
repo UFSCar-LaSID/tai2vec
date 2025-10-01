@@ -27,7 +27,7 @@ class Item2VecTrainer:
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
         
-        self.optimizer, self.scheduler = self.model.create_optimizer()
+        self.optimizer, self.scheduler = self.model.create_optimizer(max_epochs=self.parent.epochs)
         
         self.model.train()
         
@@ -78,7 +78,8 @@ class Item2VecTrainer:
             print(f"Epoch {epoch+1}/{self.parent.epochs} - Time: {epoch_time:.1f}s, Steps: {num_batches}, Time/step: {time_per_step:.3f}s, Loss: {avg_loss:.4f}")
             
             # Save embeddings callback
-            if (epoch == 5) or (epoch == 10) or (epoch == 20) or (epoch == 50) or (epoch == 100) or (epoch == 150) or (epoch == 200):
+            #if (epoch == 5) or (epoch == 10) or (epoch == 20) or (epoch == 50) or (epoch == 100) or (epoch == 150) or (epoch == 200):
+            if epoch == self.parent.epochs:
                 with torch.no_grad():
                     self._save_embeddings(epoch, data_repr)
         

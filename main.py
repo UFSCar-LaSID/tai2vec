@@ -3,7 +3,8 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'  # Enable synchronous CUDA for better error messages
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+os.environ["TORCH_USE_CUDA_DSA"] = "1"
 import pandas as pd
 import scripts as kw
 import numpy as np
@@ -29,11 +30,11 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['amazon-books']
+DATASETS = ['ciaodvd', 'amazon-beauty', 'amazon-books', 'taobao']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug']
+RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
@@ -52,7 +53,7 @@ def train_embeddings(df, embeddings_filepath, embedding_model, parameters):
 
 def recommend(df_train, df_test, embeddings_filepath, recomendation_filepath, recommender_model, parameters):
     rec_param = str_to_dict(parameters)
-    model = recommender_model(embeddings_filepath=embeddings_filepath, use_norm=rec_param.get('recomender_norm', True))
+    model = recommender_model(embeddings_filepath=embeddings_filepath, use_norm=rec_param.get('recomender_norm', False))
     model.fit(df_train)
     recommendations = model.recommend(df_test)
     return log_recommendations(recomendation_filepath, parameters, df_test, recommendations)

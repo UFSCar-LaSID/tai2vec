@@ -14,7 +14,7 @@ import torch.nn as nn
 
 class Item2vec_abstract(abc.ABC):
     def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025 ,subsample = 0.001, 
-                 batch_size = kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75, epochs=200, lr_decay=0.95, regularization=-1, init_strat='uniform_small', recomender_norm=True):
+                 batch_size = kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75, epochs=200, lr_decay=0.95, regularization=-1, recomender_norm=True):
         
         self.embedding_dir = embedding_dir
         self.embedding_size = factors
@@ -28,7 +28,6 @@ class Item2vec_abstract(abc.ABC):
         self.lr_decay = lr_decay
         self.regularization = regularization
         self.min_learning_rate = min_learning_rate
-        self.init_strat = init_strat
 
         self.X_target = []
         self.X_context = []

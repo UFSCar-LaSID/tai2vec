@@ -28,10 +28,10 @@ class Item2vec_model(Item2vec_abstract):
 
     def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate=0.000025,
                  subsample=0.001, batch_size=kw.MEM_SIZE_LIMIT, negative_samples=3, negative_exp=0.75,
-                 epochs=100, lr_decay=0.95, regularization=-1, init_strat='uniform_small', recomender_norm=True):
+                 epochs=100, lr_decay=0.95, regularization=-1, recomender_norm=True):
         
         super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate,
-                         subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization, init_strat)
+                         subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
         
         print("Using Item2Vec model with parameters:")
         print(self.__dict__)
@@ -86,7 +86,7 @@ class Item2vec_model(Item2vec_abstract):
     @monitor
     def fit(self, df):
 
-        if os.path.exists(self.embedding_dir + "@epochs=5"):
+        if os.path.exists(self.embedding_dir + "@epochs=" + str(self.epochs)):
             return
 
         np.random.seed(kw.RANDOM_STATE)
@@ -109,7 +109,6 @@ class Item2vec_model(Item2vec_abstract):
             learning_rate=self.learning_rate, 
             lr_decay=self.lr_decay, 
             regularization=self.regularization,
-            init_strat=self.init_strat
         ).to('cuda' if torch.cuda.is_available() else 'cpu')
         
         dataloader = create_item2vec_dataloader(

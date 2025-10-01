@@ -25,7 +25,7 @@ from .torchmodules.pytorch_model import Item2VecModel
 from .torchmodules.pytorch_dataset import create_item2vec_dataloader
       
 class Item2vec_Temp_Cont_model(Item2vec_abstract):
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, min_weight = 0.3, curve_exp = 2, epochs=100, min_time_diff=60, weight_floor=0.3, lr_decay=0.96, regularization=-1):
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.0025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, negative_exp=0.75, min_weight = 0.3, curve_exp = 2, epochs=100, min_time_diff=60, weight_floor=0.3, lr_decay=0.96, regularization=-1, recomender_norm=True):
         super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate, subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
         self.min_time_diff = min_time_diff
         self.min_weight = min_weight
@@ -48,12 +48,7 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         df = df.sort_values([kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
         
         # Calculate time differences
-        df[kw.COLUMN_TIME_DIFF] = (
-            df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_DATETIME]
-            .diff()
-            .dt.total_seconds()
-            .fillna(0)
-        )
+        df[kw.COLUMN_TIME_DIFF] = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_DATETIME].diff().dt.total_seconds().fillna(0).astype('int32')
         
         # Create mask for valid differences (non-noise)
         valid_mask = df[kw.COLUMN_TIME_DIFF] > self.min_time_diff
@@ -161,8 +156,10 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
                     # Calcula os ids positivos
                     X_target_aux.extend(np.repeat(curr_user[i], len(context_indices)))
                     X_context_aux.extend(np.array(curr_user)[context_indices])
+                    
                     norm_sample_weights_aux = 1 - abs(norm_weights[i] - norm_weights[context_indices])
                     norm_sample_weights = np.round(np.maximum(1 - (np.log10(1/norm_sample_weights_aux)), self.weight_floor), 2)
+
                     if self.curve_exp == -1:
                         sample_weights.extend(norm_sample_weights)
                     else:
@@ -197,24 +194,24 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         # Cria a representacao dos dados a partir do dataset
         self.data_repr = DataRepr(df, temporal_sorting=True)
 
-        # Cria as listas de interações e pesos
-        self.interaction_list = self.data_repr.create_column_list(df, kw.COLUMN_ITEM_ID)
+        # Cria as listas de interações e pesos - DataRepr will handle the mapping
+        self.interaction_list = self.data_repr.create_column_list(df, kw.COLUMN_ITEM_ID, transform=True)
         self.cumsum_list = self.data_repr.create_column_list(df, kw.COLUMN_TIME_CUMSUM)
         self.norm_weight_list = self.data_repr.create_column_list(df, kw.COLUMN_TIME_CUMSUM_NORM)
         self.mean_list = self.data_repr.create_metrics_list(df, kw.COLUMN_MEAN)
         self.std_list = self.data_repr.create_metrics_list(df, kw.COLUMN_STD)
 
+        # Use DataRepr's item count for vocab size
+        vocab_size = self.data_repr.get_n_items()
+        
         #Cria a tabela cumulativa que será utilizada para o negative sampling
         self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
         self.cumulative_table = self._cumulative_table(self.item_freq)
-
+        
         X_target, X_context, sample_weights = self._generate_positive_data()
 
-        # Calculate vocab_size to accommodate the full range of item IDs
-        vocab_size = df[kw.COLUMN_ITEM_ID].max() + 1
-
         self.model = Item2VecModel(
-            vocab_size=df[kw.COLUMN_ITEM_ID].nunique(), 
+            vocab_size=vocab_size,
             embedding_size=self.embedding_size, 
             learning_rate=self.learning_rate, 
             lr_decay=self.lr_decay, 
@@ -232,9 +229,8 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
             batch_size=self.batch_size, 
             weights=sample_weights, 
             shuffle=False,
-            num_workers=max_workers
+            num_workers=8
         )
 
         trainer = Item2VecTrainer(self, self.model)
         self.model = trainer.train(dataloader, self.data_repr)
-        

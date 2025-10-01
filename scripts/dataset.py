@@ -17,7 +17,7 @@ DATASETS_TABLE = pd.DataFrame(
      [12, 'netflixprize',              'E',         0.05],
      [13, 'retailrocket-all',          'I',         1.0],
      [14, 'retailrocket-transactions', 'I',         1.0],
-     [15, 'taobao',                    'I',         1.0],
+     [15, 'taobao',                    'I',         0.05],
      [16, 'events',                    'I',         0.5],
      [17, 'amazon-books',               'E',        1.0],
      [18, 'amazon-beauty',              'E',        1.0],
