@@ -17,11 +17,12 @@ DATASETS_TABLE = pd.DataFrame(
      [12, 'netflixprize',              'E',         0.05],
      [13, 'retailrocket-all',          'I',         1.0],
      [14, 'retailrocket-transactions', 'I',         1.0],
-     [15, 'taobao',                    'I',         0.05],
+     [15, 'taobao',                    'I',         1.0],
      [16, 'events',                    'I',         0.5],
-     [17, 'amazon-books',               'E',        1.0],
-     [18, 'amazon-beauty',              'E',        1.0],
-     [19, 'kuairand-1k',               'E',         1.0],], 
+     [17, 'amazon-books',              'E',         1.0],
+     [18, 'amazon-beauty',             'E',         1.0],
+     [19, 'kuairand-1k',               'E',         1.0],
+     [20, 'kuaisim',                   'I',         0.3],], 
     columns=[kw.DATASET_ID, kw.DATASET_NAME, kw.DATASET_TYPE, kw.DATASET_SAMPLING_RATE]
 ).set_index(kw.DATASET_ID)
 
