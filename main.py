@@ -30,11 +30,11 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['kuaisim']
+DATASETS = ['ciaodvd', 'amazon-books', 'taobao', 'amazon-beauty', 'bestbuy', 'kuaisim', 'ml-100k', 'retailrocket-transactions']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['Item2Vec_itemSim']
+RECOMMENDERS = ['ALS', 'Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
@@ -53,7 +53,7 @@ def train_embeddings(df, embeddings_filepath, embedding_model, parameters):
 
 def recommend(df_train, df_test, embeddings_filepath, recomendation_filepath, recommender_model, parameters):
     rec_param = str_to_dict(parameters)
-    model = recommender_model(embeddings_filepath=embeddings_filepath, use_norm=rec_param.get('recomender_norm', False))
+    model = recommender_model(embeddings_filepath=embeddings_filepath, use_norm=rec_param.get('recomender_norm', True))
     model.fit(df_train)
     recommendations = model.recommend(df_test)
     return log_recommendations(recomendation_filepath, parameters, df_test, recommendations)
