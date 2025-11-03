@@ -30,18 +30,18 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['ciaodvd', 'amazon-books', 'taobao', 'amazon-beauty', 'bestbuy', 'kuaisim', 'ml-100k', 'retailrocket-transactions']
+DATASETS = ['amazon-books', 'ciaodvd', 'amazon-beauty', 'kuaisim', 'taobao']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['ALS', 'Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
+RECOMMENDERS = ['TimeI2V_Disc_Aug']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
 # 'Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont', 'Gemsim_itemSim'
 
 MODES = ['Recommend', 'Evaluate']                           
-# 'Recommend', 'Evaluate'
+# 'Recommend', 'Evaluate', 'TrainEmbeddings'
 
 PARAMETER_TUNING = 'on_validation'
 # 'on_test', 'on_validation'
@@ -50,6 +50,24 @@ def train_embeddings(df, embeddings_filepath, embedding_model, parameters):
     Embedding_model = embedding_model(embeddings_filepath, **parameters)
     Embedding_model.fit(df)
     return Embedding_model
+
+def train_embeddings_full_dataset(df_full, dataset_name):
+
+    print(f'Training embeddings on full dataset: {dataset_name}')
+
+    df_train, df_val_aux = train_test_split(df_full, test_size=0.001, shuffle=False)
+    
+    for recommender in get_recommenders(recommenders=RECOMMENDERS):
+        recommender_name = recommender.get_name()
+        print(f'Training {recommender_name} on full dataset...')
+        
+        default_parameters = list(ParameterGrid(recommender.get_all_hyperparameters()))[0]
+        
+        embeddings_filepath = get_embeddings_filepath('full', dataset_name, recommender.get_embeddings_name(), default_parameters)
+        
+        embedding_model = train_embeddings(df_train, embeddings_filepath, recommender.get_embeddings_model(), default_parameters)
+        
+        print(f'Embeddings for {recommender_name} saved to: {embeddings_filepath}')
 
 def recommend(df_train, df_test, embeddings_filepath, recomendation_filepath, recommender_model, parameters):
     rec_param = str_to_dict(parameters)
@@ -84,7 +102,7 @@ for dataset in get_datasets(datasets=DATASETS):
 
     #Divide o dataset em treino, validação e teste
     if PARAMETER_TUNING == 'on_validation':
-        df_train, df_remaining = train_test_split(df, test_size=0.2, shuffle=False)
+        df_train, df_remaining = train_test_split(df, test_size=0.3, shuffle=False)
         df_val_aux, df_test = train_test_split(df_remaining, test_size=0.5, shuffle=False)
         df_val = remove_cold_start(df_train, df_val_aux)
     elif PARAMETER_TUNING == 'on_test':
@@ -170,9 +188,13 @@ for dataset in get_datasets(datasets=DATASETS):
 
                 evaluate(recomendation_filepath, metrics_filepath)
 
+    if ('TrainEmbeddings' in MODES):
+        train_embeddings_full_dataset(df, dataset_name)
+
     # Remove as pastas de validação
-    rmtree(os.path.join('results', 'recommendations', kw.VALIDATION, dataset_name))
-    #rmtree(os.path.join('results', 'embeddings', kw.VALIDATION, dataset_name))
+    if 'Evaluate' in MODES:
+        rmtree(os.path.join('results', 'recommendations', kw.VALIDATION, dataset_name))
+        #rmtree(os.path.join('results', 'embeddings', kw.VALIDATION, dataset_name))
 
 
             

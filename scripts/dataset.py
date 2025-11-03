@@ -3,7 +3,8 @@ import pandas as pd
 import scripts as kw
 import numpy as np
 DATASETS_TABLE = pd.DataFrame(
-    [[1,  'anime-recommendations',     'E',         1.0],
+    [[20,  'kuaisim',                  'I',         1.0],
+     [1, 'anime-recommendations',      'E',         1.0],
      [2,  'bestbuy',                   'I',         1.0],
      [3,  'book-crossing',             'E',         1.0],
      [4,  'ciaodvd',                   'I',         1.0],
@@ -22,7 +23,7 @@ DATASETS_TABLE = pd.DataFrame(
      [17, 'amazon-books',              'E',         1.0],
      [18, 'amazon-beauty',             'E',         1.0],
      [19, 'kuairand-1k',               'E',         1.0],
-     [20, 'kuaisim',                   'I',         0.3],], 
+     ], 
     columns=[kw.DATASET_ID, kw.DATASET_NAME, kw.DATASET_TYPE, kw.DATASET_SAMPLING_RATE]
 ).set_index(kw.DATASET_ID)
 

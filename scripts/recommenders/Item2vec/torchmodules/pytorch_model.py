@@ -18,7 +18,7 @@ class Item2VecModel(nn.Module):
             
     def _init_embeddings(self):
 
-        size = 1 / self.embedding_size
+        size = 0.1
         nn.init.uniform_(self.target_embedding.weight, -size, size)
         nn.init.uniform_(self.context_embedding.weight, -size, size)
 

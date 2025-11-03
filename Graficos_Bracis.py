@@ -19,7 +19,7 @@ best_column = kw.EVALUATION_PARAMETER
 metric_type = ["Prec", "Rec", "F1_Score", "Hit_Rate", "NDCG"]
 top_k = [3, 5, 10, 20]
 
-main_path = "results/metrics/test"
+main_path = "results/metrics/test/"
 main_file = os.listdir(main_path)
 curr_metric = "NDCG"
 
@@ -107,8 +107,6 @@ for dataset_name in main_file:
 
     figure_name = dataset_name + "_" + curr_metric + ".html"
     fig.write_html(os.path.join("figures", figure_name)) 
-    fig.show()
-    # Open the HTML file in Google Chrome
     html_path = os.path.abspath(os.path.join("figures", figure_name))
     try:
         browser = webbrowser.get('chrome')
@@ -119,4 +117,3 @@ for dataset_name in main_file:
             browser = None
     if browser:
         browser.open(f'file://{html_path}')
-    
