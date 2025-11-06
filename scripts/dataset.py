@@ -3,7 +3,7 @@ import pandas as pd
 import scripts as kw
 import numpy as np
 DATASETS_TABLE = pd.DataFrame(
-    [[20,  'kuaisim',                  'I',         1.0],
+    [[20,  'kuaisim',                  'I',         0.4],
      [1, 'anime-recommendations',      'E',         1.0],
      [2,  'bestbuy',                   'I',         1.0],
      [3,  'book-crossing',             'E',         1.0],

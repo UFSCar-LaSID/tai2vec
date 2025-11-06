@@ -12,6 +12,7 @@ class Item2VecModel(nn.Module):
         self.lr_decay = lr_decay
         self.regularization = regularization
 
+        # Back to dense embeddings for standard Adam
         self.target_embedding = nn.Embedding(vocab_size, embedding_size)
         self.context_embedding = nn.Embedding(vocab_size, embedding_size)
         self._init_embeddings()
@@ -25,14 +26,15 @@ class Item2VecModel(nn.Module):
     def forward(self, target_items, context_items):
         target_emb = self.target_embedding(target_items)  
         context_emb = self.context_embedding(context_items)
-        return torch.einsum("be,be->b", target_emb, context_emb)  # dot product
+        return torch.einsum("be,be->b", target_emb, context_emb) 
     
     def get_item_embeddings(self):
         return ((self.target_embedding.weight + self.context_embedding.weight) / 2).detach().cpu().numpy()
-        #return self.target_embedding.weight.detach().cpu().numpy()
     
     def create_optimizer(self, max_epochs):
-        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.regularization if self.regularization > 0 else 0)
+        # Use Adam; apply weight_decay only if regularization >= 0
+        wd = 0 if self.regularization < 0 else self.regularization
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=wd)
         scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=self.lr_decay, total_iters=max_epochs)
         return optimizer, scheduler
     

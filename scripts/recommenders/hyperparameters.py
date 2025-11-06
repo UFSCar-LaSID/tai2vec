@@ -2,7 +2,7 @@ import scripts as kw
 
 ALS_HYPERPARAMETERS = {
     'factors': [50, 100],
-    'regularization': [1e-2, 1e-4],
+    'regularization': [1e-2, 1e-4, 1e-6],
     'iterations': [25, 50, 100]
 }
 
@@ -23,31 +23,31 @@ GEMSIM_HYPERPARAMETERS = {
 
 ITEM2VEC_HYPERPARAMETERS = {
     'factors': [50],
-    'w_size': [10],
+    'w_size': [5, 10],
     'learning_rate': [0.25, 0.025, 0.0025],
     'subsample': [0.01, 0.001],
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [-1],
     'batch_size': [2**16],
-    'epochs': [20, 50, 100],
+    'epochs': [20, 40, 80],
     'lr_decay': [1e-6],
-    'recomender_norm': ['False'],
+    'recomender_norm': ['True'],
 }
 
 ITEM2VEC_TEMP_HYPERPARAMETERS = {
     'factors': [50],
-    'w_size': [10],
+    'w_size': [5, 10],
     'learning_rate': [0.25, 0.025, 0.0025],
     'subsample': [0.01, 0.001],
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [-1],
     'batch_size': [2**16],
-    'epochs': [20, 80],
+    'epochs': [20, 40, 80],
     'lr_decay': [1e-6],
-    'recomender_norm': ['False'],
-    'time_exp': [1.5],
+    'recomender_norm': ['True'],
+    'time_exp': [1, 2],
     'min_time_diff': [300],
 }
 
@@ -60,13 +60,13 @@ ITEM2VEC_CONT_HYPERPARAMETERS = {
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [-1],
     'batch_size': [2**16],
-    'epochs': [20, 80],
+    'epochs': [20, 40, 80],
     'lr_decay': [1e-6],
-    'recomender_norm': ['False'],
+    'recomender_norm': ['True'],
     'min_time_diff': [300],
     'min_weight': [0.2],
     'curve_exp': [-1, 2],
-    'weight_floor': [0.2],
+    'weight_floor': [0.3],
 }
 
 ALS_ITEM_SIM_HYPERPARAMETERS = {
