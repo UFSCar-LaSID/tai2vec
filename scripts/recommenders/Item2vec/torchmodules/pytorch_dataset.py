@@ -44,12 +44,8 @@ class Item2VecDataset(Dataset):
             torch.zeros(batch_size, self.negative_samples, dtype=torch.float32)
         ], dim=1)
 
-        weights_full = torch.cat([
-            weights.unsqueeze(1),
-            weights.unsqueeze(1).expand(-1, self.negative_samples)
-        ], dim=1)
-
-        return targets, contexts, labels, weights_full
+        # Keep a single weight per (target, positive) pair
+        return targets, contexts, labels, weights
 
 def create_item2vec_dataloader(X_target, X_context, cumulative_table, negative_samples, batch_size=1024, weights=None, shuffle=True, num_workers=0):
     

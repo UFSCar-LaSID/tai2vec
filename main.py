@@ -30,11 +30,11 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['ciaodvd']
+DATASETS = ['taobao']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['ALS', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
+RECOMMENDERS = ['ALS', 'BPR',  'Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
@@ -65,7 +65,7 @@ def train_embeddings_full_dataset(df_full, dataset_name):
         
         embeddings_filepath = get_embeddings_filepath('full', dataset_name, recommender.get_embeddings_name(), default_parameters)
         
-        embedding_model = train_embeddings(df_train, embeddings_filepath, recommender.get_embeddings_model(), default_parameters)
+        embedding_model = train_embeddings(df_train, embeddings_filepath, recommender.get_embeddings_model(), default_parameters) 
         
         print(f'Embeddings for {recommender_name} saved to: {embeddings_filepath}')
 
@@ -102,7 +102,7 @@ for dataset in get_datasets(datasets=DATASETS):
 
     #Divide o dataset em treino, validação e teste
     if PARAMETER_TUNING == 'on_validation':
-        df_train, df_remaining = train_test_split(df, test_size=0.3, shuffle=False)
+        df_train, df_remaining = train_test_split(df, test_size=0.4, shuffle=False)
         df_val_aux, df_test = train_test_split(df_remaining, test_size=0.5, shuffle=False)
         df_val = remove_cold_start(df_train, df_val_aux)
     elif PARAMETER_TUNING == 'on_test':
@@ -117,7 +117,7 @@ for dataset in get_datasets(datasets=DATASETS):
             recommender_name = recommender.get_name()
 
             print('Embeddings - Dataset: {} | Recommender: {}'.format(dataset_name, recommender_name))                                            
-            for parameters in tqdm(ParameterGrid(recommender.get_all_hyperparameters())):
+            for parameters in tqdm(ParameterGrid(recommender.get_all_hyperparameters())):   
 
                 #Define onde salvar as embeddings
                 embeddings_filepath = get_embeddings_filepath(kw.VALIDATION, dataset_name, recommender.get_embeddings_name(), parameters)

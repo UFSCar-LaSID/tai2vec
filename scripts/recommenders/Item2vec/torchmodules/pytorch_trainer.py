@@ -26,21 +26,16 @@ class Item2VecTrainer:
             torch.backends.cudnn.benchmark = True
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
+
+        steps_per_epoch = len(dataloader) if hasattr(dataloader, '__len__') else 1
+        total_iters = max(1, self.parent.epochs * steps_per_epoch)
         
-        self.optimizer, self.scheduler = self.model.create_optimizer(max_epochs=self.parent.epochs)
+        self.optimizer, self.scheduler = self.model.create_optimizer(max_epochs=total_iters)
         
         self.model.train()
         
         scaler = torch.amp.GradScaler('cuda') if torch.cuda.is_available() else None
         use_amp = torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 7
-
-        steps_per_epoch = len(dataloader) if hasattr(dataloader, '__len__') else 1
-        total_iters = max(1, self.parent.epochs * steps_per_epoch)
-        self.scheduler = torch.optim.lr_scheduler.LinearLR(
-            self.optimizer,
-            start_factor=1.0,
-            end_factor=self.model.lr_decay,
-            total_iters=total_iters)
         
         for epoch in range(1, self.parent.epochs+1):
             epoch_start_time = time.time()
@@ -51,22 +46,20 @@ class Item2VecTrainer:
 
                 self.optimizer.zero_grad(set_to_none=True)
 
-                targets = targets.flatten().to(self.device, non_blocking=True)
-                contexts = contexts.flatten().to(self.device, non_blocking=True)
-                labels = labels.flatten().to(self.device, non_blocking=True)
-                weights = weights.flatten().to(self.device, non_blocking=True)
+                targets = targets.to(self.device, non_blocking=True)
+                contexts = contexts.to(self.device, non_blocking=True)
+                weights = weights.to(self.device, non_blocking=True)
                 
                 if use_amp and scaler is not None:
                     with torch.amp.autocast('cuda'):
-                        loss = self.model.compute_loss(targets, contexts, labels, weights)
-                    
+                        loss = self.model.get_loss(targets, contexts, weights=weights)
                     scaler.scale(loss).backward()
                     scaler.step(self.optimizer)
                     scaler.update()
                     if self.scheduler is not None:
                         self.scheduler.step()
                 else:
-                    loss = self.model.compute_loss(targets, contexts, labels, weights)
+                    loss = self.model.get_loss(targets, contexts, weights=weights)
                     loss.backward()
                     self.optimizer.step()
                     if self.scheduler is not None:

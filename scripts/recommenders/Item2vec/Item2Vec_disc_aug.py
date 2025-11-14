@@ -52,51 +52,49 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         return df
 
     def _generate_positive_data(self):
+        X_target = []
+        X_context = []
+        sample_weights = []
 
-        X_target, X_context, sample_weights = [], [], []
+        for user_id in range(len(self.interaction_list)):
+            curr_user = np.array(self.interaction_list[user_id], dtype=np.int32)
+            user_time_groups = np.array(self.time_groups[user_id], dtype=np.int32)
+            user_size = curr_user.shape[0]
 
-        arr = np.arange(len(self.interaction_list))
-        #np.random.shuffle(arr)
-
-        for user_id in arr:
-
-            X_target_aux, X_context_aux = [], []
-
-            #Recebe a lista de itens do usuário atual
-            user_time_groups = np.array(self.time_groups[user_id])
-            curr_user = np.array(self.interaction_list[user_id])
-            user_size = len(curr_user)
-            
-            if (user_size < 2):
+            if user_size < 2:
                 continue
-                
-            # Amostras positivas
-            if self.window_size == -1:
-                user_repeat = np.repeat(range(user_size), user_size-1)
-                user_comb = np.tile(range(user_size), user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)]  
 
-                X_target_aux.extend(curr_user[user_repeat])
-                X_context_aux.extend(curr_user[user_comb])
-                sample_values = np.where((user_time_groups[user_repeat] - user_time_groups[user_comb]) == 0, 2, 1)
-                sample_weights.extend(sample_values)
-            else:
-                for i in range(user_size):
-                    #Define o início e o fim da janela de contexto
-                    start_idx = max(0, i - self.window_size)
-                    end_idx = min(user_size, i + self.window_size + 1)
-                    # Cria um array de indices e remove o alvo
-                    context_indices = np.arange(start_idx, end_idx)
-                    # Calcula os ids positivos
-                    X_target_aux.extend(np.repeat(curr_user[i], len(context_indices)))
-                    X_context_aux.extend(np.array(curr_user)[context_indices])
-                    sample_values = np.where((user_time_groups[i] - user_time_groups[context_indices]) == 0, 2, 1)
-                    sample_weights.extend(sample_values)
+            # Sliding window positive sampling
+            for i in range(user_size):
+                start_idx = max(0, i - self.window_size)
+                end_idx = min(user_size, i + self.window_size + 1)
 
-            X_target.extend(X_target_aux)
-            X_context.extend(X_context_aux)
-            self.steps_per_epoch = (len(X_target) // self.batch_size) + 1
+                # Context items (excluding the target itself)
+                context_indices = np.arange(start_idx, end_idx)
+                context_indices = context_indices[context_indices != i]
 
-        return np.array(X_target), np.array(X_context), np.array(sample_weights)
+                # Targets repeated for each context
+                X_target.extend([curr_user[i]] * len(context_indices))
+                X_context.extend(curr_user[context_indices])
+
+                # Time-based weighting: 2 if same time group, else 1
+                weights = np.where(
+                    user_time_groups[i] == user_time_groups[context_indices],
+                    2.0, 1.0
+                )
+                sample_weights.extend(weights)
+
+        # Convert to arrays once at the end
+        X_target = np.asarray(X_target, dtype=np.int32)
+        X_context = np.asarray(X_context, dtype=np.int32)
+        sample_weights = np.asarray(sample_weights, dtype=np.float32)
+
+        # Compute steps per epoch once
+        self.steps_per_epoch = (len(X_target) // self.batch_size) + (
+            1 if len(X_target) % self.batch_size else 0)
+
+        return X_target, X_context, sample_weights
+
 
     def fit(self, df):
 
@@ -128,6 +126,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
             learning_rate=self.learning_rate, 
             lr_decay=self.lr_decay, 
             regularization=self.regularization,
+            loss_sum=True,
         ).to('cuda' if torch.cuda.is_available() else 'cpu')
         
         self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
@@ -144,7 +143,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
             batch_size=self.batch_size, 
             weights=sample_weights, 
             shuffle=False,
-            num_workers=max_workers
+            num_workers=8
         )
 
         trainer = Item2VecTrainer(self, self.model)

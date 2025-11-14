@@ -108,68 +108,40 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         return np.round(weights, 2)
 
     def _generate_positive_data(self):
+        """Generate only window-based positive samples (no full-pair mode)."""
+        X_target, X_context, sample_weights = [], [], []
 
-        X_target, X_context, y, sample_weights = [], [], [], []
-
-        arr = np.arange(len(self.interaction_list))
-        #np.random.shuffle(arr)
-
-        for user_id in arr:
-
-            X_target_aux, X_context_aux, y_aux = [], [], [] 
-
-            #Recebe a lista de itens do usuário atual
+        for user_id in range(len(self.interaction_list)):
             curr_user = np.array(self.interaction_list[user_id])
             cumulative_time = np.array(self.cumsum_list[user_id])
             norm_weights = np.array(self.norm_weight_list[user_id])
-
             mean = self.mean_list[user_id]
             std = self.std_list[user_id]
             user_size = len(curr_user)
 
-            if (user_size < 2):
+            if user_size < 2:
                 continue
-                
-            # Amostras positivas
-            if self.window_size == -1:
-                
-                user_repeat = np.repeat(range(user_size), user_size-1)
-                user_comb = np.tile(range(user_size), user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)]  
 
-                X_target_aux.extend(curr_user[user_repeat])
-                X_context_aux.extend(curr_user[user_comb])
-                norm_sample_weights_aux = 1 - abs(norm_weights[user_repeat] - norm_weights[user_comb])
-                norm_sample_weights = np.round(np.maximum(1 - (np.log10(1/norm_sample_weights_aux)), self.weight_floor), 2)
+            for i in range(user_size):
+                start_idx = max(0, i - self.window_size)
+                end_idx = min(user_size, i + self.window_size + 1)
+                context_indices = np.arange(start_idx, end_idx)
+
+                X_target.extend(np.repeat(curr_user[i], len(context_indices)))
+                X_context.extend(curr_user[context_indices])
+
+                norm_sample_weights_aux = 1 - abs(norm_weights[i] - norm_weights[context_indices])
+                norm_sample_weights = np.round(
+                    np.maximum(1 - (np.log10(1 / norm_sample_weights_aux)), self.weight_floor),
+                    2,
+                )
+
                 if self.curve_exp == -1:
                     sample_weights.extend(norm_sample_weights)
                 else:
-                    z_sample_weights = self._calculate_weights(abs(cumulative_time[user_repeat] - cumulative_time[user_comb]), mean, std)
-                    final_weights = (z_sample_weights + norm_sample_weights)/2
-                    sample_weights.extend(final_weights)
-            else:
-                for i in range(user_size):
-                    #Define o início e o fim da janela de contexto
-                    start_idx = max(0, i - self.window_size)
-                    end_idx = min(user_size, i + self.window_size + 1)
-                    # Cria um array de indices e remove o alvo
-                    context_indices = np.arange(start_idx, end_idx)
-                    # Calcula os ids positivos
-                    X_target_aux.extend(np.repeat(curr_user[i], len(context_indices)))
-                    X_context_aux.extend(np.array(curr_user)[context_indices])
-                    
-                    norm_sample_weights_aux = 1 - abs(norm_weights[i] - norm_weights[context_indices])
-                    norm_sample_weights = np.round(np.maximum(1 - (np.log10(1/norm_sample_weights_aux)), self.weight_floor), 2)
+                    z_sample_weights = self._calculate_weights(abs(cumulative_time[i] - cumulative_time[context_indices]), mean, std)
+                    sample_weights.extend(z_sample_weights)
 
-                    if self.curve_exp == -1:
-                        sample_weights.extend(norm_sample_weights)
-                    else:
-                        z_sample_weights = self._calculate_weights(abs(cumulative_time[i] - cumulative_time[context_indices]), mean, std)
-                        #final_weights = (z_sample_weights + norm_sample_weights)/2
-                        sample_weights.extend(z_sample_weights)
-
-            X_target.extend(X_target_aux)
-            X_context.extend(X_context_aux)
-            
         print("\nNumber of samples:", len(X_target))
         print("Number of negative samples:", len(X_target) * self.negative_samples)
         self.steps_per_epoch = (len(X_target) // self.batch_size) + 1
@@ -215,7 +187,8 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
             embedding_size=self.embedding_size, 
             learning_rate=self.learning_rate, 
             lr_decay=self.lr_decay, 
-            regularization=self.regularization
+            regularization=self.regularization,
+            loss_sum=True,
         ).to('cuda' if torch.cuda.is_available() else 'cpu')
 
         max_workers = os.cpu_count()

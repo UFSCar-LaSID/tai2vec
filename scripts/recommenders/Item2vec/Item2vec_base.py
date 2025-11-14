@@ -40,48 +40,47 @@ class Item2vec_model(Item2vec_abstract):
         self.user_lengths = None
 
     def _generate_positive_data(self):
-
-        X_target, X_context = [], []
+        X_target = []
+        X_context = []
 
         arr = np.arange(len(self.interaction_list))
         np.random.shuffle(arr)
 
         for user_id in arr:
+            curr_user = np.array(self.interaction_list[user_id], dtype=np.int32)
+            user_size = curr_user.shape[0]
 
-            X_target_aux, X_context_aux = [], []
-
-            #Recebe a lista de itens do usuário atual
-            curr_user = self.interaction_list[user_id]
-            np.random.shuffle(curr_user)
-            user_size = len(curr_user)
-            
-            if (user_size < 2):
+            if user_size < 2:
                 continue
-                
-            # Amostras positivas
-            if self.window_size == -1:
-                X_target_aux.extend(np.repeat(curr_user, user_size-1))
-                X_context_aux.extend(np.tile(curr_user, user_size)[np.tile(np.arange(1, user_size+1), user_size-1) + np.repeat(np.arange(user_size-1)*(user_size+1), user_size)])
-            else:
-                for i in range(user_size):
-                    #Define o início e o fim da janela de contexto
-                    start_idx = max(0, i - self.window_size)
-                    end_idx = min(user_size, i + self.window_size + 1)
-                    # Cria um array de indices e remove o alvo
-                    context_indices = np.arange(start_idx, end_idx)
-                    context_indices = context_indices[context_indices != i] 
-                    # Calcula os ids positivos
-                    X_target_aux.extend(np.repeat(curr_user[i], len(context_indices)))
-                    X_context_aux.extend(np.array(curr_user)[context_indices])
 
-            X_target.extend(X_target_aux)
-            X_context.extend(X_context_aux)
+            # Sliding window positive sampling only
+            for i in range(user_size):
+                start_idx = max(0, i - self.window_size)
+                end_idx = min(user_size, i + self.window_size + 1)
 
-        print("\nNumber of samples:", len(X_target))
-        print("Number of negative samples:", len(X_target) * self.negative_samples)
-        self.steps_per_epoch = (len(X_target) // self.batch_size) + 1
+                # Context indices excluding target itself
+                context_indices = np.arange(start_idx, end_idx)
+                context_indices = context_indices[context_indices != i]
 
-        return np.array(X_target), np.array(X_context)
+                if len(context_indices) == 0:
+                    continue
+
+                # Expand pairs
+                X_target.extend([curr_user[i]] * len(context_indices))
+                X_context.extend(curr_user[context_indices])
+
+        X_target = np.asarray(X_target, dtype=np.int32)
+        X_context = np.asarray(X_context, dtype=np.int32)
+
+        print(f"\nNumber of positive samples: {len(X_target):,}")
+        print(f"Number of negative samples: {len(X_target) * self.negative_samples:,}")
+
+        # Compute steps per epoch once
+        self.steps_per_epoch = (len(X_target) // self.batch_size) + (
+            1 if len(X_target) % self.batch_size else 0
+        )
+
+        return X_target, X_context
 
     @monitor
     def fit(self, df):
@@ -109,6 +108,7 @@ class Item2vec_model(Item2vec_abstract):
             learning_rate=self.learning_rate, 
             lr_decay=self.lr_decay, 
             regularization=self.regularization,
+            loss_sum=True
         ).to('cuda' if torch.cuda.is_available() else 'cpu')
         
         dataloader = create_item2vec_dataloader(
@@ -117,7 +117,7 @@ class Item2vec_model(Item2vec_abstract):
             batch_size=self.batch_size, 
             weights=None, 
             shuffle=False,
-            num_workers=max_workers,
+            num_workers=8,
             cumulative_table=self.cumulative_table, 
             negative_samples=self.negative_samples
         )
