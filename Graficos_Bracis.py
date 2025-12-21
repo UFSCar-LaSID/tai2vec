@@ -87,7 +87,7 @@ for dataset_name in main_file:
                 name=recomendador
             )
         )
-    
+
     fig.update_layout(
     title=dataset_name+" - "+curr_metric,
     title_x=0.15,

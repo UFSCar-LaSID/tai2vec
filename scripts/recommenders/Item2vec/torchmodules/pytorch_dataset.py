@@ -30,10 +30,8 @@ class Item2VecDataset(Dataset):
 
         batch_size = target_items.size(0)
 
-        # Expande os itens-alvo de [batch_size] para [batch_size, negative_samples+1]
         targets = target_items.unsqueeze(1).expand(-1, self.negative_samples + 1).contiguous()
 
-        # Coleta os contextos negativos
         random_samples = torch.rand(batch_size, self.negative_samples)  # CPU
         negative_contexts = torch.searchsorted(self.cumulative_table_cpu, random_samples, right=True)
 
@@ -44,7 +42,6 @@ class Item2VecDataset(Dataset):
             torch.zeros(batch_size, self.negative_samples, dtype=torch.float32)
         ], dim=1)
 
-        # Keep a single weight per (target, positive) pair
         return targets, contexts, labels, weights
 
 def create_item2vec_dataloader(X_target, X_context, cumulative_table, negative_samples, batch_size=1024, weights=None, shuffle=True, num_workers=0):

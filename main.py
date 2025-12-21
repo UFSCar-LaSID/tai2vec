@@ -30,17 +30,18 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['taobao']
+DATASETS = ['ciaodvd', 'amazon-books', 'amazon-beauty', 'taobao']
+
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['ALS', 'BPR',  'Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
+RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
 # 'Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont', 'Gemsim_itemSim'
 
-MODES = ['Recommend', 'Evaluate']                           
+MODES = ['TrainEmbeddings', 'Recommend', 'Evaluate']                           
 # 'Recommend', 'Evaluate', 'TrainEmbeddings'
 
 PARAMETER_TUNING = 'on_validation'
@@ -51,30 +52,18 @@ def train_embeddings(df, embeddings_filepath, embedding_model, parameters):
     Embedding_model.fit(df)
     return Embedding_model
 
-def train_embeddings_full_dataset(df_full, dataset_name):
-
-    print(f'Training embeddings on full dataset: {dataset_name}')
-
-    df_train, df_val_aux = train_test_split(df_full, test_size=0.001, shuffle=False)
-    
-    for recommender in get_recommenders(recommenders=RECOMMENDERS):
-        recommender_name = recommender.get_name()
-        print(f'Training {recommender_name} on full dataset...')
-        
-        default_parameters = list(ParameterGrid(recommender.get_all_hyperparameters()))[0]
-        
-        embeddings_filepath = get_embeddings_filepath('full', dataset_name, recommender.get_embeddings_name(), default_parameters)
-        
-        embedding_model = train_embeddings(df_train, embeddings_filepath, recommender.get_embeddings_model(), default_parameters) 
-        
-        print(f'Embeddings for {recommender_name} saved to: {embeddings_filepath}')
-
 def recommend(df_train, df_test, embeddings_filepath, recomendation_filepath, recommender_model, parameters):
-    rec_param = str_to_dict(parameters)
-    model = recommender_model(embeddings_filepath=embeddings_filepath, use_norm=rec_param.get('recomender_norm', True))
+
+    if isinstance(parameters, dict):
+        rec_param = parameters
+    else:
+        rec_param = str_to_dict(parameters)
+    
+    model = recommender_model(embeddings_filepath=embeddings_filepath, use_norm=rec_param['recomender_norm'], combination_strategy=rec_param['combination_strategy'])
     model.fit(df_train)
     recommendations = model.recommend(df_test)
     return log_recommendations(recomendation_filepath, parameters, df_test, recommendations)
+
     
 def evaluate(recomendation_filepath, metrics_filepath):
     metrics_model = Metrics(kw.N_EVAL)
@@ -102,50 +91,56 @@ for dataset in get_datasets(datasets=DATASETS):
 
     #Divide o dataset em treino, validação e teste
     if PARAMETER_TUNING == 'on_validation':
-        df_train, df_remaining = train_test_split(df, test_size=0.4, shuffle=False)
+        df_train, df_remaining = train_test_split(df, test_size=0.3, shuffle=False)
         df_val_aux, df_test = train_test_split(df_remaining, test_size=0.5, shuffle=False)
         df_val = remove_cold_start(df_train, df_val_aux)
     elif PARAMETER_TUNING == 'on_test':
         df_train, df_val_aux = train_test_split(df, test_size=0.1, shuffle=False)
         df_val = remove_cold_start(df_train, df_val_aux)
 
-    if ('Recommend' in MODES): 
-
-        #Cria as embeddings de cada modelo
+    if ('TrainEmbeddings' in MODES):
+        
         for recommender in get_recommenders(recommenders=RECOMMENDERS):
 
             recommender_name = recommender.get_name()
 
-            print('Embeddings - Dataset: {} | Recommender: {}'.format(dataset_name, recommender_name))                                            
-            for parameters in tqdm(ParameterGrid(recommender.get_all_hyperparameters())):   
+            print('Training Embeddings - Dataset: {} | Recommender: {}'.format(dataset_name, recommender_name))                                
+            
+            # Iterate through only the embedding hyperparameters
+            for parameters in tqdm(ParameterGrid(recommender.get_embeddings_hyperparameters())):   
 
                 #Define onde salvar as embeddings
                 embeddings_filepath = get_embeddings_filepath(kw.VALIDATION, dataset_name, recommender.get_embeddings_name(), parameters)
                 embedding_model = train_embeddings(df_train, embeddings_filepath, recommender.get_embeddings_model(), parameters)
 
-                #Como o modelo de embeddings do ALS e BPR também fazem recomendações, eles são tratados separadamente
+                # Como ALS e BPR fazem treino e recomendação em um passo, eles são tratados aqui.
                 if recommender_name == 'ALS' or recommender_name == 'BPR':
                     recommendations = embedding_model.recommend(df_val)
                     recomendation_filepath = get_recomendation_filepath(kw.VALIDATION, dataset_name, recommender_name)
-                    rec_dir = log_recommendations(recomendation_filepath, parameters, df_val, recommendations)
+                    log_recommendations(recomendation_filepath, parameters, df_val, recommendations)
+
+    if ('Recommend' in MODES): 
 
         for recommender in get_recommenders(recommenders=RECOMMENDERS):
 
             recommender_name = recommender.get_name()
 
-            #Ignora os modelos de embeddings ALS e BPR, pois já fizarem a recomendação
             if recommender_name == 'ALS' or recommender_name == 'BPR':
                 continue
 
-            # Recebe onde as embeddings foram salvas e onde as recomendações devem ser encaminhadas
-            embeddings_filepath, parameters = get_all_embeddings_filepath(kw.VALIDATION, dataset_name, recommender_name)
+            embedding_paths, embedding_params_list = get_all_embeddings_filepath(kw.VALIDATION, dataset_name, recommender.get_embeddings_name())
             recomendation_filepath = get_recomendation_filepath(kw.VALIDATION, dataset_name, recommender_name)
 
             print('Recommendations - Dataset: {} | Recommender: {}'.format(dataset_name, recommender_name))
 
-            # Realiza as recomendações
-            for i in tqdm(range(len(embeddings_filepath))):
-                recommend(df_train, df_val, embeddings_filepath[i], recomendation_filepath, recommender.get_model(), parameters[i])
+            for i in tqdm(range(len(embedding_paths))):
+                embedding_path = embedding_paths[i]
+                embedding_params = str_to_dict(embedding_params_list[i])
+
+                for rec_params in ParameterGrid(recommender.get_recommender_hyperparameters()):
+                    
+                    combined_params = {**embedding_params, **rec_params}
+                    recommend(df_train, df_val, embedding_path, recomendation_filepath, recommender.get_model(), combined_params)
 
     if ('Evaluate' in MODES):
 
@@ -170,33 +165,30 @@ for dataset in get_datasets(datasets=DATASETS):
             #-----------------------------------//-----------------------------------
             if PARAMETER_TUNING == 'on_validation':
 
-                # Cria as embeddings de cada model
-                embeddings_filepath = get_embeddings_filepath(kw.TEST, dataset_name, recommender.get_embeddings_name(), best_parameters)
+                best_parameters_dict = str_to_dict(best_parameters)
+                
+                # Separa os parâmetros de embedding e de recomendação
+                embedding_params = {k: v for k, v in best_parameters_dict.items() if k in recommender.get_embeddings_hyperparameters()}
+                rec_params = {k: v for k, v in best_parameters_dict.items() if k in recommender.get_recommender_hyperparameters()}
+
+                # Paths for the test stage
+                embeddings_filepath = get_embeddings_filepath(kw.TEST, dataset_name, recommender.get_embeddings_name(), embedding_params)
                 recomendation_filepath = get_recomendation_filepath(kw.TEST, dataset_name, recommender_name)
                 metrics_filepath = get_metrics_filepath(kw.TEST, dataset_name, recommender_name)
 
-                embedding_model = train_embeddings(df_train, embeddings_filepath, recommender.get_embeddings_model(), str_to_dict(best_parameters))
+                # Treina as embeddings com os melhores parâmetros no dataset de treino+validação
+                embedding_model = train_embeddings(df_train, embeddings_filepath, recommender.get_embeddings_model(), embedding_params)
 
                 # A partir do melhor parâmetro, realiza a recomendação para os dados de teste
                 if recommender_name == 'ALS' or recommender_name == 'BPR':
                     recommendations = embedding_model.recommend(df_test)
-                    rec_dir = log_recommendations(recomendation_filepath, best_parameters, df_test, recommendations)
+                    log_recommendations(recomendation_filepath, best_parameters, df_test, recommendations)
                 else:
-                    embeddings_filepath, parameters = get_all_embeddings_filepath(kw.TEST, dataset_name, recommender_name)
-                    for i in range(len(embeddings_filepath)):
-                        recommend(df_train, df_test, embeddings_filepath[i], recomendation_filepath, recommender.get_model(), parameters[i])
+                    # Combina os parâmetros novamente para a função de recomendação
+                    recommend(df_train, df_test, embeddings_filepath, recomendation_filepath, recommender.get_model(), best_parameters_dict)
 
                 evaluate(recomendation_filepath, metrics_filepath)
 
-    if ('TrainEmbeddings' in MODES):
-        train_embeddings_full_dataset(df, dataset_name)
-
-    # Remove as pastas de validação
     if 'Evaluate' in MODES:
         rmtree(os.path.join('results', 'recommendations', kw.VALIDATION, dataset_name))
         #rmtree(os.path.join('results', 'embeddings', kw.VALIDATION, dataset_name))
-
-
-            
-
-    

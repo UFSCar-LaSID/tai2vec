@@ -38,8 +38,8 @@ class Dataset(object):
 
         if kw.COLUMN_RATING in self.df.columns:
             explicit_ratings = self.df[kw.COLUMN_RATING]!=-1
-            min_max = self.df[explicit_ratings][kw.COLUMN_RATING].apply(['min', 'max'])
-            mean_rating = min_max.loc['min'] + (min_max.loc['max']-min_max.loc['min'])/2  
+            min_max = self.df[explicit_ratings][kw.COLUMN_RATING].agg(['min', 'max'])
+            mean_rating = (min_max.loc['min'] + min_max.loc['max']) / 2  
             self.df = self.df[(self.df[kw.COLUMN_RATING]>=mean_rating)|(self.df[kw.COLUMN_RATING]==-1)]
 
         if self.sampling_rate < 1.0:

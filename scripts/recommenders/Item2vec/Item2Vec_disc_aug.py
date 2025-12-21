@@ -25,29 +25,48 @@ from .torchmodules.pytorch_dataset import create_item2vec_dataloader
 
       
 class Item2vec_temp_aug_model(Item2vec_abstract):
-    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025, subsample = 0.0001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=5, 
-                 negative_exp=0.75, epochs=100, time_exp=1, min_time_diff=300, lr_decay=0.95, regularization=-1, recomender_norm=True):
-        super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate, subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization)
+    def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, min_learning_rate = 0.000025, subsample = 0.001, batch_size = kw.MEM_SIZE_LIMIT, negative_samples=3, 
+                 negative_exp=0.75, epochs=100, lr_decay=0.95, regularization=-1, recomender_norm=True, time_exp=1.5, min_time_diff=300, big_innit=False):
+        super().__init__(embedding_dir, factors, w_size, learning_rate, min_learning_rate, subsample, batch_size, negative_samples, negative_exp, epochs, lr_decay, regularization, recomender_norm, big_innit)
         self.time_exp = time_exp
         self.min_time_diff = min_time_diff
 
     def timestamp_diff(self, df):
 
+        # 1. Handle Datetime conversion
         if kw.COLUMN_TIMESTAMP in df.columns:
+            df = df.copy()
             df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
         elif kw.COLUMN_DATETIME in df.columns:
+            df = df.copy()
             df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME])
 
+        df = df.sort_values([kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
+
+        # 3. Calculate Time Diffs
         df[kw.COLUMN_TIME_DIFF] = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_DATETIME].diff().dt.total_seconds().fillna(0).astype('int32')
-        q1 = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_DIFF].transform(lambda x: x[x > self.min_time_diff].quantile(0.25) if (x > self.min_time_diff).any() else np.inf)
-        q3 = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_TIME_DIFF].transform(lambda x: x[x > self.min_time_diff].quantile(0.75) if (x > self.min_time_diff).any() else np.inf)
 
-        threshold = q3 + (self.time_exp * (q3 - q1))
+        # 4. Filter Valid Gaps (Optimization)
+        valid_gaps_mask = df[kw.COLUMN_TIME_DIFF] > self.min_time_diff
+        df['temp_diffs'] = df[kw.COLUMN_TIME_DIFF].where(valid_gaps_mask)
 
+        # 5. Calculate Quantiles efficiently
+        q1 = df.groupby(kw.COLUMN_USER_ID)['temp_diffs'].transform('quantile', 0.25)
+        q3 = df.groupby(kw.COLUMN_USER_ID)['temp_diffs'].transform('quantile', 0.75)
+
+        # 6. Calculate Threshold
+        iqr = q3 - q1
+        threshold = q3 + (self.time_exp * iqr)
+
+        # 7. Safety Fix: Fill NaN thresholds with Infinity
+        threshold = threshold.fillna(np.inf)
+
+        # 8. Create Session Mask
         df['mask'] = df[kw.COLUMN_TIME_DIFF] >= threshold
         df['increment'] = df.groupby(kw.COLUMN_USER_ID)['mask'].cumsum()
 
-        df.drop(columns=['mask'], inplace=True)
+        # 9. Cleanup
+        df.drop(columns=['mask', 'temp_diffs'], inplace=True)
 
         return df
 
@@ -64,7 +83,6 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
             if user_size < 2:
                 continue
 
-            # Sliding window positive sampling
             for i in range(user_size):
                 start_idx = max(0, i - self.window_size)
                 end_idx = min(user_size, i + self.window_size + 1)
@@ -78,10 +96,8 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
                 X_context.extend(curr_user[context_indices])
 
                 # Time-based weighting: 2 if same time group, else 1
-                weights = np.where(
-                    user_time_groups[i] == user_time_groups[context_indices],
-                    2.0, 1.0
-                )
+                weights = np.where(user_time_groups[i] == user_time_groups[context_indices], 2.0, 1.0)
+
                 sample_weights.extend(weights)
 
         # Convert to arrays once at the end
@@ -96,15 +112,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         return X_target, X_context, sample_weights
 
 
-    def fit(self, df):
-
-        if os.path.exists(self.embedding_dir + "@epochs=" + str(self.epochs)):
-            return
-        
-        np.random.seed(kw.RANDOM_STATE)
-        torch.manual_seed(kw.RANDOM_STATE)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(kw.RANDOM_STATE)
+    def _fit_data(self, df):
 
         if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
             df = self.timestamp_diff(df.copy())
@@ -127,6 +135,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
             lr_decay=self.lr_decay, 
             regularization=self.regularization,
             loss_sum=True,
+            big_innit=self.big_innit
         ).to('cuda' if torch.cuda.is_available() else 'cpu')
         
         self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
@@ -142,7 +151,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
             negative_samples=self.negative_samples,
             batch_size=self.batch_size, 
             weights=sample_weights, 
-            shuffle=False,
+            shuffle=True,
             num_workers=8
         )
 

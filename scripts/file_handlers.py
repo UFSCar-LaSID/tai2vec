@@ -31,21 +31,40 @@ def get_all_embeddings_filepath(file_type, dataset_name, recommender_name):
 
     return files_path, parameters_string
 
-def get_embeddings_filepath(file_type, dataset_name, recommender_name, parameters):
-    if isinstance(parameters, dict):
-        parameters = _dict_to_str(parameters)
-    filepath = os.path.join(MAIN_FOLDER, 'embeddings', file_type, dataset_name, recommender_name, parameters)
-    return filepath
+def get_embeddings_filepath(folder, dataset_name, recommender_name, parameters):
+    
+    # Create a copy to avoid modifying the original dictionary
+    params_copy = parameters.copy()
+    
+    # Pop 'epochs' to handle it separately, ensuring it's always at the end.
+    epochs = params_copy.pop('epochs', None)
+    
+    # Create the base path from the remaining sorted parameters
+    params_str = '@'.join([f"{k}={v}" for k, v in sorted(params_copy.items())])
+    
+    path = os.path.join('results', 'embeddings', folder, dataset_name, recommender_name, params_str)
+    
+    # Append the epochs parameter at the end, matching the saving logic.
+    if epochs is not None:
+        path += f"@epochs={epochs}"
+        
+    return path
 
-def get_recomendation_filepath(file_type, dataset_name, recommender_name):
-    filepath = os.path.join(MAIN_FOLDER, 'recommendations', file_type, dataset_name, recommender_name)
+def get_recomendation_filepath(file_type, dataset_name, recommender_name, parameters=None):
+    filepath = os.path.join('results', 'recommendations', file_type, dataset_name, recommender_name)
+    
+    if parameters:
+        params_str = '@'.join([f"{k}={v}" for k, v in sorted(parameters.items())])
+        filepath = os.path.join(filepath, params_str)
+
+    if not os.path.exists(filepath):
+        os.makedirs(filepath)
+        
     return filepath
 
 def get_metrics_filepath(file_type, dataset_name, recommender_name):
-    filepath = os.path.join(MAIN_FOLDER, 'metrics', file_type, dataset_name, recommender_name)
+    filepath = os.path.join('results', 'metrics', file_type, dataset_name, recommender_name)
     return filepath
-
-
 
 def log_recommendations(recomendation_filepath, parameters_string, df_test, recommendations):
     if isinstance(parameters_string, dict):

@@ -1,88 +1,108 @@
-import scripts as kw
+import numpy as np
 import pickle
 import os
-import numpy as np
+import scripts as kw
+from scripts.recommenders.Item2vec.Data_repr import DataRepr
+from .utils.recommendations import get_recommendations
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
+import torch
 
-class ItemSim(object):
-    def __init__(self, embeddings_filepath, k=kw.K, use_norm='True'):
+def get_cosine_similarity_matrix(embeddings, use_norm=True, batch_size=128):
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    emb = torch.from_numpy(embeddings).to(device=device, dtype=torch.float32)
+
+    n = emb.shape[0]
+    sim_matrix = torch.empty((n, n), device=device, dtype=torch.float32)
+
+    # Process in blocks: rows x cols
+    bs = int(batch_size)
+    for i in range(0, n, bs):
+        a = emb[i:i+bs]  # [bs, d]
+        # Optionally further split columns for very large n
+        for j in range(0, n, bs):
+            b = emb[j:j+bs]  # [bs, d] (or smaller on last block)
+            # [bs_i, d] @ [d, bs_j] -> [bs_i, bs_j]
+            block = a @ b.T
+            sim_matrix[i:i+a.shape[0], j:j+b.shape[0]] = block
+
+        del a
+        torch.cuda.empty_cache() if device == 'cuda' else None
+
+    return sim_matrix.detach().cpu().numpy()
+
+def combine_embeddings(target_embeddings, context_embeddings, combination_strategy='avg_norm_after', use_norm=True):
+
+    t = torch.from_numpy(target_embeddings).float()
+    c = torch.from_numpy(context_embeddings).float()
+
+    def _norm(x):
+        return x / (x.norm(dim=1, keepdim=True) + 1e-9)
+
+    if combination_strategy == 'avg_norm_before':
+        if use_norm:
+            t = _norm(t)
+            c = _norm(c)
+        combined = (t + c) / 2.0
+
+    elif combination_strategy == 'avg_norm_after':
+        combined = (t + c) / 2.0
+        if use_norm:
+            combined = _norm(combined)
+
+    elif combination_strategy == 'target_only':
+        combined = t
+        if use_norm:
+            combined = _norm(combined)
+
+    else:
+        raise ValueError(f"Unknown combination strategy: {combination_strategy}")
+
+    return combined.numpy()
+
+class ItemSim:
+
+    def __init__(self, embeddings_filepath, use_norm=True, combination_strategy='avg_norm_after', k=kw.K):
+        
+        self.embedding_dir = embeddings_filepath
+        self.use_norm = use_norm
+        self.combination_strategy = combination_strategy
         self.k = k
-        self.sparse_repr = pickle.load(open(os.path.join(embeddings_filepath, kw.FILE_SPARSE_REPR), 'rb'))
-        self.embeddings = np.load(open(os.path.join(embeddings_filepath, kw.FILE_ITEMS_EMBEDDINGS), 'rb'), allow_pickle=True)
-        #self.embeddings = self.embeddings / np.sqrt(np.sum(self.embeddings**2, axis=1)).reshape(-1,1)
 
-        if use_norm == 'True':
-            norms = np.linalg.norm(self.embeddings, axis=1, keepdims=True)
-            self.embeddings = self.embeddings / (norms + 1e-8)
+        with open(os.path.join(embeddings_filepath, kw.FILE_SPARSE_REPR), 'rb') as f:
+            self.data_repr = pickle.load(f)
+        
+        target_embeddings = np.load(os.path.join(embeddings_filepath, kw.FILE_ITEMS_EMBEDDINGS))
+        context_embeddings = np.load(os.path.join(embeddings_filepath, kw.FILE_CONTEXT_EMBEDDINGS))
+
+        self.item_embeddings = combine_embeddings(
+            target_embeddings,
+            context_embeddings,
+            combination_strategy=self.combination_strategy,
+            use_norm=self.use_norm
+        )
 
     def fit(self, df):
-        
-        n_items = self.embeddings.shape[0]
-        
-        # Fix batch size calculation
-        items_per_batch = max(1, int(kw.MEM_SIZE_LIMIT/8))
-        
-        # Check K value
-        self.k = min(self.k, n_items - 1)  
 
-        self.item_item_sim = pd.DataFrame()        
-        for i in range(0, n_items, items_per_batch):
-            batch_items = self.sparse_repr.get_item_id(np.arange(i, min(i+items_per_batch, n_items)))
-            batch_sims = np.dot(self.embeddings[i:i+items_per_batch], self.embeddings.T) # calcula similaridade            
-            np.fill_diagonal(batch_sims[:, i:i+items_per_batch], -np.inf)
-            
-            batch_df = pd.DataFrame(
-                np.column_stack([
-                    np.repeat(batch_items, self.k),
-                    self.sparse_repr.get_item_id(np.argpartition(-batch_sims, kth=self.k-1, axis=1)[:, :self.k].flatten()), # captura os itens vizinhos
-                    -np.partition(-batch_sims, kth=self.k-1, axis=1)[:, :self.k].flatten() # captura similaridades dos k vizinhos
-                ]),
-                columns=[kw.COLUMN_ITEM_ID, 'neighbor', 'sim']
-            )
-            self.item_item_sim = pd.concat([self.item_item_sim, batch_df])
+        self.df_train = df
+
+        sim_matrix = get_cosine_similarity_matrix(self.item_embeddings, self.use_norm)
+
+        n_items = sim_matrix.shape[0]
+        self.k = min(self.k, n_items - 1)
+
+        np.fill_diagonal(sim_matrix, -np.inf)
+
+        top_k_indices = np.argpartition(-sim_matrix, kth=self.k-1, axis=1)[:, :self.k]
+        top_k_scores = np.array([sim_matrix[i, top_k_indices[i]] for i in range(n_items)])
+
+        item_ids = self.data_repr.get_item_id(np.arange(n_items))
         
-        # Convert neighbor column to int
-        #self.item_item_sim['neighbor'] = self.item_item_sim['neighbor'].astype(int)
-        
-        self.df_train = df.copy()
+        self.item_item_sim = pd.DataFrame({
+            kw.COLUMN_ITEM_ID: np.repeat(item_ids, self.k),
+            'neighbor': self.data_repr.get_item_id(top_k_indices.flatten()),
+            'sim': top_k_scores.flatten()
+        })
 
     def recommend(self, df_test):
-        
-        # Handle edge case: No item similarities computed
-        if len(self.item_item_sim) == 0:
-            return pd.DataFrame(columns=[kw.COLUMN_USER_ID, kw.COLUMN_ITEM_ID, "rank"])
-        
-        target_users = df_test[kw.COLUMN_USER_ID].unique()        
-        item_based_neighborhood = pd.merge(
-            self.df_train[self.df_train[kw.COLUMN_USER_ID].isin(target_users)], 
-            self.item_item_sim, 
-            on=kw.COLUMN_ITEM_ID, 
-            how='inner'
-        )
-        
-        if len(item_based_neighborhood) == 0:
-            return pd.DataFrame(columns=[kw.COLUMN_USER_ID, kw.COLUMN_ITEM_ID, "rank"])
-        
-        final_sim = item_based_neighborhood.groupby([kw.COLUMN_USER_ID, 'neighbor'])['sim'].mean().reset_index()
-        
-        final_sim = final_sim.merge(
-            self.df_train, 
-            how='left', 
-            left_on=[kw.COLUMN_USER_ID, 'neighbor'], 
-            right_on=[kw.COLUMN_USER_ID, kw.COLUMN_ITEM_ID]
-        )
-        final_sim = final_sim[final_sim[kw.COLUMN_ITEM_ID].isna()].drop(columns=[kw.COLUMN_ITEM_ID])
-        
-        if len(final_sim) == 0:
-            print("Warning: No recommendations after filtering!")
-            return pd.DataFrame(columns=[kw.COLUMN_USER_ID, kw.COLUMN_ITEM_ID, "rank"])
-        
-        recommendations = final_sim.sort_values('sim', ascending=False).groupby(kw.COLUMN_USER_ID).head(kw.TOP_N).sort_values([kw.COLUMN_USER_ID, 'sim'], ascending=[True, False])
-        
-        del final_sim
-        
-        recommendations[kw.COLUMN_RANK] = recommendations.groupby(kw.COLUMN_USER_ID).cumcount() + 1
-        recommendations = recommendations.rename(columns={'neighbor': kw.COLUMN_ITEM_ID})[[kw.COLUMN_USER_ID, kw.COLUMN_ITEM_ID, "rank"]].reset_index(drop=True)
-
-        return recommendations
+        return get_recommendations(self.df_train, df_test, self.item_item_sim, self.data_repr)

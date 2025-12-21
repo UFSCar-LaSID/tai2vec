@@ -37,7 +37,7 @@ class Item2VecTrainer:
         scaler = torch.amp.GradScaler('cuda') if torch.cuda.is_available() else None
         use_amp = torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 7
         
-        for epoch in range(1, self.parent.epochs+1):
+        for epoch in range(1, self.parent.epochs + 1):
             epoch_start_time = time.time()
             total_loss = 0.0
             num_batches = 0
@@ -78,28 +78,8 @@ class Item2VecTrainer:
             avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
             time_per_step = epoch_time / num_batches if num_batches > 0 else 0.0
             
-            print(f"Epoch {epoch+1}/{self.parent.epochs} - Time: {epoch_time:.1f}s, Steps: {num_batches}, Time/step: {time_per_step:.3f}s, Loss: {avg_loss:.4f}")
-            
-            if epoch == self.parent.epochs:
-                with torch.no_grad():
-                    self._save_embeddings(epoch, data_repr)
-        
-        del dataloader
-        if use_amp and scaler is not None:
-            del scaler
+            print(f"Epoch {epoch}/{self.parent.epochs} - Time: {epoch_time:.1f}s, Steps: {num_batches}, Time/step: {time_per_step:.3f}s, Loss: {avg_loss:.4f}")
+
+        torch.save(self.model.state_dict(), "best_model.pth")
         
         return self.model
-    
-    def _save_embeddings(self, epoch, data_repr):
-
-        path_components = os.path.normpath(self.parent.embedding_dir).split(os.sep)
-
-        if len(path_components) > 2 and path_components[2] == 'validation':
-            embedding_dir = self.parent.embedding_dir + "@epochs={}".format(epoch)
-        else:
-            embedding_dir = self.parent.embedding_dir
-
-        os.makedirs(embedding_dir, exist_ok=True)
-        item_embeddings = self.model.get_item_embeddings()
-        np.save(os.path.join(embedding_dir, kw.FILE_ITEMS_EMBEDDINGS), item_embeddings)
-        pickle.dump(data_repr, open(os.path.join(embedding_dir, kw.FILE_SPARSE_REPR), 'wb'))

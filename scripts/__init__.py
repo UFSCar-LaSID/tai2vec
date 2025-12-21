@@ -15,8 +15,11 @@ FILE_USERS = 'users.csv'
 FILE_INTERACTIONS = 'interactions.csv'
 
 # Nomes de arquivos de saves de modelos
-FILE_SPARSE_REPR = 'sparse_repr.pkl'
+FILE_METRICS = 'metrics.csv'
+FILE_RECOMMENDATIONS = 'recommendations.csv'
 FILE_ITEMS_EMBEDDINGS = 'items.npy'
+FILE_CONTEXT_EMBEDDINGS = 'context.npy'
+FILE_SPARSE_REPR = 'sparse_repr.pkl'
 FILE_USERS_EMBEDDINGS = 'users.npy'
 
 # Colunas da tabela de dataset
@@ -76,6 +79,6 @@ K = 30
 N_EVAL = 20
 
 # Limite de memória
-MEM_SIZE_LIMIT = int(2**14) #22
+MEM_SIZE_LIMIT = int(2**16) #22
 
 EVALUATION_PARAMETER = 'NDCG@15'

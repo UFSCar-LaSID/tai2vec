@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 
 class Item2VecModel(nn.Module):
-    def __init__(self, vocab_size, embedding_size, learning_rate, lr_decay, regularization=-1, loss_sum=True):
+    def __init__(self, vocab_size, embedding_size, learning_rate, lr_decay, regularization=-1, loss_sum=True, normalize_after=False, big_innit=False):
         super(Item2VecModel, self).__init__()
 
         self.vocab_size = vocab_size
@@ -12,6 +13,8 @@ class Item2VecModel(nn.Module):
         self.lr_decay = lr_decay
         self.regularization = regularization
         self.loss_sum = loss_sum
+        self.normalize_after = normalize_after
+        self.big_innit = big_innit
 
         # Back to dense embeddings for standard Adam
         self.target_embedding = nn.Embedding(vocab_size, embedding_size)
@@ -20,7 +23,11 @@ class Item2VecModel(nn.Module):
             
     def _init_embeddings(self):
 
-        size = 0.1
+        if self.big_innit:
+            size = 1
+        else:
+            size = 1 / np.sqrt(self.embedding_size)
+
         nn.init.uniform_(self.target_embedding.weight, -size, size)
         nn.init.uniform_(self.context_embedding.weight, -size, size)
 
@@ -30,13 +37,42 @@ class Item2VecModel(nn.Module):
         return torch.einsum("be,be->b", target_emb, context_emb) 
     
     def get_item_embeddings(self):
-        t = self.target_embedding.weight
-        c = self.context_embedding.weight
-        t = t / (t.norm(dim=1, keepdim=True) + 1e-9)
-        c = c / (c.norm(dim=1, keepdim=True) + 1e-9)
-        tc = ((t + c)/2)
-        #tc = tc / (tc.norm(dim=1, keepdim=True) + 1e-9)
-        return tc.detach().cpu().numpy()
+        """
+        Returns the raw target and context embeddings.
+        """
+        t = self.target_embedding.weight.detach().cpu().numpy()
+        c = self.context_embedding.weight.detach().cpu().numpy()
+        return t, c
+
+    @staticmethod
+    def combine_embeddings(target_embeddings, context_embeddings, combination_strategy='avg_norm_after', use_norm=True):
+
+        t = torch.from_numpy(target_embeddings).float()
+        c = torch.from_numpy(context_embeddings).float()
+
+        def _norm(x):
+            return x / (x.norm(dim=1, keepdim=True) + 1e-9)
+
+        if combination_strategy == 'avg_norm_before':
+            if use_norm:
+                t = _norm(t)
+                c = _norm(c)
+            combined = (t + c) / 2.0
+
+        elif combination_strategy == 'avg_norm_after':
+            combined = (t + c) / 2.0
+            if use_norm:
+                combined = _norm(combined)
+
+        elif combination_strategy == 'target_only':
+            combined = t
+            if use_norm:
+                combined = _norm(combined)
+
+        else:
+            raise ValueError(f"Unknown combination strategy: {combination_strategy}")
+
+        return combined.numpy()
     
     def create_optimizer(self, max_epochs):
         # Use Adam; apply weight_decay only if regularization >= 0
@@ -60,12 +96,6 @@ class Item2VecModel(nn.Module):
                 return (bce.mean() * weights.mean())
     
     def get_loss(self, targets, contexts, weights=None):
-        """Compute classic negative sampling loss.
-        targets, contexts: Long tensors [B, K+1] (first column positive, rest negatives).
-        weights: Optional [B] per (target, positive) pair weight.
-        sum_negatives: If True use sum of negative losses (original word2vec); else use mean.
-        Returns scalar loss.
-        """
 
         sum_negatives = self.loss_sum
 
