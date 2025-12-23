@@ -30,7 +30,7 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['ciaodvd', 'amazon-books', 'amazon-beauty', 'taobao']
+DATASETS = ['ciaodvd', 'amazon-beauty']
 
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
@@ -63,7 +63,6 @@ def recommend(df_train, df_test, embeddings_filepath, recomendation_filepath, re
     model.fit(df_train)
     recommendations = model.recommend(df_test)
     return log_recommendations(recomendation_filepath, parameters, df_test, recommendations)
-
     
 def evaluate(recomendation_filepath, metrics_filepath):
     metrics_model = Metrics(kw.N_EVAL)

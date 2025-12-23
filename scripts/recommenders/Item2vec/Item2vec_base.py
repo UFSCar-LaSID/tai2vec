@@ -32,12 +32,14 @@ class Item2vec_model(Item2vec_abstract):
         X_target = []
         X_context = []
 
-        # Shuffle users for better training distribution
         arr = np.arange(len(self.interaction_list))
         np.random.shuffle(arr)
 
         for user_id in arr:
+
             curr_user = np.array(self.interaction_list[user_id], dtype=np.int32)
+            np.random.shuffle(curr_user)
+
             user_size = curr_user.shape[0]
 
             if user_size < 2:
@@ -70,20 +72,21 @@ class Item2vec_model(Item2vec_abstract):
     @monitor
     def _fit_data(self, df):
 
-        # 1. Preprocessing
-        df = self._subsample_items(df)
-        self.data_repr = DataRepr(df)
-        self.interaction_list = self.data_repr.create_interaction_list(df)
-        
-        # 2. Statistics
+        # 1. Get data statistics
         self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
         self.cumulative_table = self._cumulative_table(self.item_freq)
+        self.vocab_size = len(self.item_freq)
+
+        # 2. Subsample and Prepare Data for training
+        self.data_repr = DataRepr(df)
+        df = self._subsample_items(df)
+        self.interaction_list = self.data_repr.create_interaction_list(df)
         
         # 3. Data Generation
         X_target, X_context = self._generate_positive_data()
         
         self.model = Item2VecModel(
-            vocab_size=df[kw.COLUMN_ITEM_ID].nunique(), 
+            vocab_size=self.vocab_size, 
             embedding_size=self.embedding_size, 
             learning_rate=self.learning_rate, 
             lr_decay=self.lr_decay, 

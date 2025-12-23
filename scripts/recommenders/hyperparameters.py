@@ -1,16 +1,16 @@
 import scripts as kw
 
 ALS_HYPERPARAMETERS = {
-    'factors': [50, 100],
+    'factors': [50, 100, 200],
     'regularization': [1e-2, 1e-4, 1e-6],
-    'iterations': [25, 50, 100]
+    'iterations': [10, 20, 50, 100]
 }
 
 BPR_HYPERPARAMETERS = {
-    'factors': [50, 100],
+    'factors': [50, 100, 200],
     'learning_rate': [0.0025, 0.025, 0.25],
-    'regularization': [1e-2, 1e-4],
-    'iterations': [25, 50, 100]
+    'regularization': [1e-2, 1e-4, 1e-6],
+    'iterations': [10, 20, 50, 100]
 }
 
 GEMSIM_HYPERPARAMETERS = {
@@ -22,50 +22,43 @@ GEMSIM_HYPERPARAMETERS = {
 }
 
 ITEMSIM_RECOMMENDER_HYPERPARAMETERS = {
-    'recomender_norm': [True, False],
+    'recomender_norm': [True],
     'combination_strategy': ['avg_norm_after', 'avg_norm_before', 'target_only']
 } #'target_only', 'avg_norm_after', 'avg_norm_before'
 
 ITEM2VEC_HYPERPARAMETERS = {
-    #'factors': [50],
     'w_size': [5, 10],
-    'learning_rate': [0.25, 0.0025],
-    'subsample': [0.01, 0.001],
-    #'negative_samples': [7],
+    'learning_rate': [0.25, 0.025, 0.0025],
+    'subsample': [1e-3, 1e-4, 0.1e-5],
+    'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [-1],
-    #'batch_size': [2**12],
     'epochs': [5, 20, 50, 100],
-    'big_innit': [False],
-    #'lr_decay': [0.0001],
 }
 
 ITEM2VEC_TEMP_HYPERPARAMETERS = {
-    #'factors': [50],
     'w_size': [5, 10],
-    'learning_rate': [0.25, 0.0025],
-    'subsample': [0.01, 0.001],
-    #'negative_samples': [7],
+    'learning_rate': [0.25, 0.025, 0.0025],
+    'subsample': [1e-3, 1e-4, 0.1e-5],
+    'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [-1],
-    #'batch_size': [2**12],
     'epochs': [5, 20, 50, 100],
-    'big_innit': [False],
+    'time_exp': [1.5],
     'min_time_diff': [300],
 }
 
 ITEM2VEC_CONT_HYPERPARAMETERS = {
-    #'factors': [50],
     'w_size': [5, 10],
-    'learning_rate': [0.25, 0.0025],
-    'subsample': [0.01, 0.001],
-    #'negative_samples': [7],
+    'learning_rate': [0.25, 0.025, 0.0025],
+    'subsample': [1e-3, 1e-4, 0.1e-5],
+    'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [-1],
-    #'batch_size': [2**12],
     'epochs': [5, 20, 50, 100],
-    'big_innit': [False],
     'weight_floor': [0.3],
+    'decay_rate': [-1, 3],
+    'min_time_diff': [300],
 }
 
 ITEM2VEC_CONT_EXP_HYPERPARAMETERS = {

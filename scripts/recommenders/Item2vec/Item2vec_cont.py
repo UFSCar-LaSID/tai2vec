@@ -147,28 +147,28 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
 
     def _fit_data(self, df):
 
+        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
+        self.cumulative_table = self._cumulative_table(self.item_freq)
+        self.vocab_size = len(self.item_freq)
+
         if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
             df = self.timestamp_cum(df.copy())
         else:
             raise Exception("Timestamp column not found")
 
-        df = self._subsample_items(df)
         self.data_repr = DataRepr(df, temporal_sorting=True)
+        df = self._subsample_items(df)
 
         self.interaction_list = self.data_repr.create_column_list(df, kw.COLUMN_ITEM_ID, transform=True)
         self.cumsum_list = self.data_repr.create_column_list(df, kw.COLUMN_TIME_CUMSUM)
         self.norm_weight_list = self.data_repr.create_column_list(df, kw.COLUMN_TIME_CUMSUM_NORM)
         self.mean_list = self.data_repr.create_metrics_list(df, kw.COLUMN_MEAN)
         self.std_list = self.data_repr.create_metrics_list(df, kw.COLUMN_STD)
-
-        vocab_size = self.data_repr.get_n_items()
-        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
-        self.cumulative_table = self._cumulative_table(self.item_freq)
         
         X_target, X_context, sample_weights = self._generate_positive_data()
 
         self.model = Item2VecModel(
-            vocab_size=vocab_size, 
+            vocab_size=self.vocab_size, 
             embedding_size=self.embedding_size, 
             learning_rate=self.learning_rate, 
             lr_decay=self.lr_decay, 
@@ -193,7 +193,6 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
 
         trainer = Item2VecTrainer(self, self.model)
         self.model = trainer.train(dataloader, self.data_repr)
-
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

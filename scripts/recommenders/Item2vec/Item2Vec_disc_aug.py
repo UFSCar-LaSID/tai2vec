@@ -114,13 +114,17 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
 
     def _fit_data(self, df):
 
+        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
+        self.cumulative_table = self._cumulative_table(self.item_freq)
+        self.vocab_size = len(self.item_freq)
+
         if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
             df = self.timestamp_diff(df.copy())
         else:
             raise Exception("Timestamp column not found")
         
-        df = self._subsample_items(df)
         self.data_repr = DataRepr(df)
+        df = self._subsample_items(df)
         self.interaction_list = self.data_repr.create_interaction_list(df)
 
         sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
@@ -129,7 +133,7 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         X_target, X_context, sample_weights = self._generate_positive_data()
 
         self.model = Item2VecModel(
-            vocab_size=df[kw.COLUMN_ITEM_ID].nunique(), 
+            vocab_size=self.vocab_size,
             embedding_size=self.embedding_size, 
             learning_rate=self.learning_rate, 
             lr_decay=self.lr_decay, 
@@ -137,9 +141,6 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
             loss_sum=True,
             big_innit=self.big_innit
         ).to('cuda' if torch.cuda.is_available() else 'cpu')
-        
-        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
-        self.cumulative_table = self._cumulative_table(self.item_freq)
 
         max_workers = os.cpu_count()
         print(f"Using {max_workers} workers for DataLoader")
