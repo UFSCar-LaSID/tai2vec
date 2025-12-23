@@ -26,7 +26,7 @@ class Item2vec_abstract(abc.ABC):
         self.negative_expoent = negative_exp
         self.learning_rate = learning_rate
         self.epochs = epochs
-        self.batch_size = 2**12
+        self.batch_size = 2**14
         self.lr_decay = 0.0001
         self.regularization = regularization
         self.min_learning_rate = min_learning_rate
@@ -40,7 +40,6 @@ class Item2vec_abstract(abc.ABC):
         self.subsample_probs = None
         self.model = None
         self.cumulative_table = None
-        # new parameter propagation
         self.big_innit = big_innit
 
     @abc.abstractmethod
