@@ -30,12 +30,12 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['ciaodvd', 'amazon-beauty']
+DATASETS = ['taobao', 'amazon-beauty']
 
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
+RECOMMENDERS = ['BPR']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
@@ -90,7 +90,7 @@ for dataset in get_datasets(datasets=DATASETS):
 
     #Divide o dataset em treino, validação e teste
     if PARAMETER_TUNING == 'on_validation':
-        df_train, df_remaining = train_test_split(df, test_size=0.3, shuffle=False)
+        df_train, df_remaining = train_test_split(df, test_size=0.2, shuffle=False)
         df_val_aux, df_test = train_test_split(df_remaining, test_size=0.5, shuffle=False)
         df_val = remove_cold_start(df_train, df_val_aux)
     elif PARAMETER_TUNING == 'on_test':
@@ -107,6 +107,8 @@ for dataset in get_datasets(datasets=DATASETS):
             
             # Iterate through only the embedding hyperparameters
             for parameters in tqdm(ParameterGrid(recommender.get_embeddings_hyperparameters())):   
+
+                print('Parameters: {}'.format(parameters))
 
                 #Define onde salvar as embeddings
                 embeddings_filepath = get_embeddings_filepath(kw.VALIDATION, dataset_name, recommender.get_embeddings_name(), parameters)
@@ -190,4 +192,3 @@ for dataset in get_datasets(datasets=DATASETS):
 
     if 'Evaluate' in MODES:
         rmtree(os.path.join('results', 'recommendations', kw.VALIDATION, dataset_name))
-        #rmtree(os.path.join('results', 'embeddings', kw.VALIDATION, dataset_name))

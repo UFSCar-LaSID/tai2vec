@@ -18,7 +18,7 @@ from scripts.recsys import remove_single_interactions, remove_cold_start
 from scripts.metrics import Metrics
 
 
-DATASETS = ['ciaodvd', 'amazon-books', 'amazon-beauty', 'taobao']
+DATASETS = ['ciaodvd', 'amazon-books', 'amazon-beauty']
 RECOMMENDERS = ['Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
 BEST_COLUMN = kw.EVALUATION_PARAMETER
 CURR_METRIC = 'NDCG'
@@ -66,7 +66,6 @@ def get_best_validation_combos():
             combos.extend(best.to_dict('records'))
     return combos
 
-
 def retrain_and_evaluate_test(combos):
     for c in combos:
         ds = c['dataset']
@@ -81,7 +80,7 @@ def retrain_and_evaluate_test(combos):
         df = df.sort_values(by=kw.COLUMN_DATETIME)
 
         from sklearn.model_selection import train_test_split
-        df_train, df_rem = train_test_split(df, test_size=0.3, shuffle=False)
+        df_train, df_rem = train_test_split(df, test_size=0.2, shuffle=False)
         df_val_aux, df_test = train_test_split(df_rem, test_size=0.5, shuffle=False)
         df_train = pd.concat([df_train, df_val_aux], axis=0)
         df_test = remove_cold_start(df_train, df_test)
@@ -89,6 +88,10 @@ def retrain_and_evaluate_test(combos):
         emb_path = get_embeddings_filepath(kw.TEST, ds, c['embeddings_name'], c['embedding_params'])
         rec_dir = get_recomendation_filepath(kw.TEST, ds, c['recommender'], c['rec_params'])
         metrics_dir = os.path.join(get_metrics_filepath(kw.TEST, ds, c['recommender']), c['rec_group'])
+
+        # Ensure the 'epochs' parameter is correctly named before model instantiation
+        if 'epochs' in c['embedding_params']:
+            c['embedding_params']['epochs'] = c['embedding_params'].pop('epochs')
 
         emb_model = c['emb_model_cls'](emb_path, **c['embedding_params'])
         emb_model.fit(df_train)

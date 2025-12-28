@@ -7,29 +7,23 @@ from .utils.recommendations import get_recommendations
 import pandas as pd
 import torch
 
-def get_cosine_similarity_matrix(embeddings, use_norm=True, batch_size=128):
+def get_cosine_similarity_matrix(embeddings, batch_size=256):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    emb = torch.from_numpy(embeddings).to(device=device, dtype=torch.float32)
-
+    emb = torch.from_numpy(embeddings).to(device='cuda', dtype=torch.float32)
+    emb_t = emb.T
+    
     n = emb.shape[0]
-    sim_matrix = torch.empty((n, n), device=device, dtype=torch.float32)
 
-    # Process in blocks: rows x cols
-    bs = int(batch_size)
-    for i in range(0, n, bs):
-        a = emb[i:i+bs]  # [bs, d]
-        # Optionally further split columns for very large n
-        for j in range(0, n, bs):
-            b = emb[j:j+bs]  # [bs, d] (or smaller on last block)
-            # [bs_i, d] @ [d, bs_j] -> [bs_i, bs_j]
-            block = a @ b.T
-            sim_matrix[i:i+a.shape[0], j:j+b.shape[0]] = block
+    sim_matrix = np.empty((n, n), dtype=np.float32)
 
-        del a
-        torch.cuda.empty_cache() if device == 'cuda' else None
+    for i in range(0, n, batch_size):
 
-    return sim_matrix.detach().cpu().numpy()
+        batch = emb[i : i + batch_size]
+        scores = batch @ emb_t
+        sim_matrix[i : i + batch_size] = scores.cpu().numpy()
+
+    return sim_matrix
 
 def combine_embeddings(target_embeddings, context_embeddings, combination_strategy='avg_norm_after', use_norm=True):
 
@@ -86,7 +80,7 @@ class ItemSim:
 
         self.df_train = df
 
-        sim_matrix = get_cosine_similarity_matrix(self.item_embeddings, self.use_norm)
+        sim_matrix = get_cosine_similarity_matrix(self.item_embeddings, batch_size=8)
 
         n_items = sim_matrix.shape[0]
         self.k = min(self.k, n_items - 1)

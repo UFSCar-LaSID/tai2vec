@@ -23,41 +23,41 @@ GEMSIM_HYPERPARAMETERS = {
 
 ITEMSIM_RECOMMENDER_HYPERPARAMETERS = {
     'recomender_norm': [True],
-    'combination_strategy': ['avg_norm_after', 'avg_norm_before', 'target_only']
+    'combination_strategy': ['avg_norm_before']
 } #'target_only', 'avg_norm_after', 'avg_norm_before'
 
 ITEM2VEC_HYPERPARAMETERS = {
-    'w_size': [5, 10],
-    'learning_rate': [0.25, 0.025, 0.0025],
-    'subsample': [1e-3, 1e-4, 0.1e-5],
+    'w_size': [10],
+    'learning_rate': [0.25, 0.025],
+    'subsample': [1e-3, 1e-4],
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
-    'regularization': [-1],
-    'epochs': [5, 20, 50, 100],
+    'regularization': [1e-6],
+    'epochs': [20, 50, 100],
 }
 
 ITEM2VEC_TEMP_HYPERPARAMETERS = {
-    'w_size': [5, 10],
-    'learning_rate': [0.25, 0.025, 0.0025],
-    'subsample': [1e-3, 1e-4, 0.1e-5],
+    'w_size': [10],
+    'learning_rate': [0.25, 0.025],
+    'subsample': [1e-3, 1e-4],
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
-    'regularization': [-1],
-    'epochs': [5, 20, 50, 100],
+    'regularization': [1e-6],
+    'epochs': [20, 50, 100],
     'time_exp': [1.5],
     'min_time_diff': [300],
 }
 
 ITEM2VEC_CONT_HYPERPARAMETERS = {
-    'w_size': [5, 10],
-    'learning_rate': [0.25, 0.025, 0.0025],
-    'subsample': [1e-3, 1e-4, 0.1e-5],
+    'w_size': [10],
+    'learning_rate': [0.25, 0.025],
+    'subsample': [1e-3, 1e-4],
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
-    'regularization': [-1],
-    'epochs': [5, 20, 50, 100],
+    'regularization': [1e-6],
+    'epochs': [20, 50, 100],
     'weight_floor': [0.3],
-    'decay_rate': [-1, 3],
+    'decay_rate': [3],
     'min_time_diff': [300],
 }
 

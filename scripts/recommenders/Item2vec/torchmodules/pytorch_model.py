@@ -43,36 +43,6 @@ class Item2VecModel(nn.Module):
         t = self.target_embedding.weight.detach().cpu().numpy()
         c = self.context_embedding.weight.detach().cpu().numpy()
         return t, c
-
-    @staticmethod
-    def combine_embeddings(target_embeddings, context_embeddings, combination_strategy='avg_norm_after', use_norm=True):
-
-        t = torch.from_numpy(target_embeddings).float()
-        c = torch.from_numpy(context_embeddings).float()
-
-        def _norm(x):
-            return x / (x.norm(dim=1, keepdim=True) + 1e-9)
-
-        if combination_strategy == 'avg_norm_before':
-            if use_norm:
-                t = _norm(t)
-                c = _norm(c)
-            combined = (t + c) / 2.0
-
-        elif combination_strategy == 'avg_norm_after':
-            combined = (t + c) / 2.0
-            if use_norm:
-                combined = _norm(combined)
-
-        elif combination_strategy == 'target_only':
-            combined = t
-            if use_norm:
-                combined = _norm(combined)
-
-        else:
-            raise ValueError(f"Unknown combination strategy: {combination_strategy}")
-
-        return combined.numpy()
     
     def create_optimizer(self, max_epochs):
         # Use Adam; apply weight_decay only if regularization >= 0

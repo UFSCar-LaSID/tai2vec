@@ -33,7 +33,6 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
 
     def timestamp_diff(self, df):
 
-        # 1. Handle Datetime conversion
         if kw.COLUMN_TIMESTAMP in df.columns:
             df = df.copy()
             df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
@@ -43,14 +42,11 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
 
         df = df.sort_values([kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
 
-        # 3. Calculate Time Diffs
         df[kw.COLUMN_TIME_DIFF] = df.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_DATETIME].diff().dt.total_seconds().fillna(0).astype('int32')
 
-        # 4. Filter Valid Gaps (Optimization)
         valid_gaps_mask = df[kw.COLUMN_TIME_DIFF] > self.min_time_diff
         df['temp_diffs'] = df[kw.COLUMN_TIME_DIFF].where(valid_gaps_mask)
 
-        # 5. Calculate Quantiles efficiently
         q1 = df.groupby(kw.COLUMN_USER_ID)['temp_diffs'].transform('quantile', 0.25)
         q3 = df.groupby(kw.COLUMN_USER_ID)['temp_diffs'].transform('quantile', 0.75)
 
@@ -58,10 +54,8 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         iqr = q3 - q1
         threshold = q3 + (self.time_exp * iqr)
 
-        # 7. Safety Fix: Fill NaN thresholds with Infinity
         threshold = threshold.fillna(np.inf)
 
-        # 8. Create Session Mask
         df['mask'] = df[kw.COLUMN_TIME_DIFF] >= threshold
         df['increment'] = df.groupby(kw.COLUMN_USER_ID)['mask'].cumsum()
 

@@ -157,7 +157,7 @@ if __name__ == "__main__":
     from scripts.dataset import get_datasets 
     
     # Configuration
-    TARGET_DATASET_NAME = 'kuaisim' 
+    TARGET_DATASET_NAME = 'amazon-books' 
     
     print(f"Loading real dataset: {TARGET_DATASET_NAME}...")
     target_dataset = None
