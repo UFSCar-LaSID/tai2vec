@@ -72,12 +72,6 @@ class Item2vec_model(Item2vec_abstract):
     @monitor
     def _fit_data(self, df):
 
-        # 1. Get data statistics
-        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
-        self.cumulative_table = self._cumulative_table(self.item_freq)
-        self.vocab_size = len(self.item_freq)
-
-        # 2. Subsample and Prepare Data for training
         self.data_repr = DataRepr(df)
         df = self._subsample_items(df)
         self.interaction_list = self.data_repr.create_interaction_list(df)

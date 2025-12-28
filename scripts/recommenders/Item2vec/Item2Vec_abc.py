@@ -40,6 +40,7 @@ class Item2vec_abstract(abc.ABC):
         self.subsample_probs = None
         self.model = None
         self.cumulative_table = None
+        self.item_freq = None
         self.big_innit = big_innit
 
     @abc.abstractmethod
@@ -58,6 +59,10 @@ class Item2vec_abstract(abc.ABC):
         torch.manual_seed(kw.RANDOM_STATE)
         if torch.cuda.is_available():
             torch.cuda.manual_seed(kw.RANDOM_STATE)
+
+        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
+        self.cumulative_table = self._cumulative_table(self.item_freq)
+        self.vocab_size = len(self.item_freq)
 
         self._fit_data(df)
 

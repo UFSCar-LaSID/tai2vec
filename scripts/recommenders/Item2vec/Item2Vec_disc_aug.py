@@ -50,7 +50,6 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         q1 = df.groupby(kw.COLUMN_USER_ID)['temp_diffs'].transform('quantile', 0.25)
         q3 = df.groupby(kw.COLUMN_USER_ID)['temp_diffs'].transform('quantile', 0.75)
 
-        # 6. Calculate Threshold
         iqr = q3 - q1
         threshold = q3 + (self.time_exp * iqr)
 
@@ -59,7 +58,6 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
         df['mask'] = df[kw.COLUMN_TIME_DIFF] >= threshold
         df['increment'] = df.groupby(kw.COLUMN_USER_ID)['mask'].cumsum()
 
-        # 9. Cleanup
         df.drop(columns=['mask', 'temp_diffs'], inplace=True)
 
         return df
@@ -107,10 +105,6 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
 
 
     def _fit_data(self, df):
-
-        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
-        self.cumulative_table = self._cumulative_table(self.item_freq)
-        self.vocab_size = len(self.item_freq)
 
         if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
             df = self.timestamp_diff(df.copy())

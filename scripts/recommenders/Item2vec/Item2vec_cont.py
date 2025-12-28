@@ -147,10 +147,6 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
 
     def _fit_data(self, df):
 
-        self.item_freq = list(df.groupby(kw.COLUMN_ITEM_ID).size().values)
-        self.cumulative_table = self._cumulative_table(self.item_freq)
-        self.vocab_size = len(self.item_freq)
-
         if kw.COLUMN_TIMESTAMP in df.columns or kw.COLUMN_DATETIME in df.columns:
             df = self.timestamp_cum(df.copy())
         else:
