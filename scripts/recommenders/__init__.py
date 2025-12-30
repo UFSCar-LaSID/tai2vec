@@ -4,9 +4,7 @@ import scripts as kw
 from scripts.recommenders.Mf_models.mf import ALS, BPR
 from scripts.recommenders.hyperparameters import ALS_HYPERPARAMETERS, BPR_HYPERPARAMETERS, ITEMSIM_RECOMMENDER_HYPERPARAMETERS, ITEM2VEC_HYPERPARAMETERS, GEMSIM_HYPERPARAMETERS, ITEM2VEC_TEMP_HYPERPARAMETERS, ITEM2VEC_CONT_EXP_HYPERPARAMETERS, ITEM2VEC_CONT_HYPERPARAMETERS
 from scripts.recommenders.itemSim import ItemSim
-from scripts.recommenders.itemSim_gpu import ItemSim as ItemSim_gpu
 from scripts.recommenders.Item2vec.Item2vec_base import Item2vec_model
-#from scripts.recommenders.Item2vec.Item2vec_gemsim import Word2Vec_gemsim
 from scripts.recommenders.Item2vec.Item2vec_disc import Item2vec_temp_model
 from scripts.recommenders.Item2vec.Item2Vec_disc_aug import Item2vec_temp_aug_model
 from scripts.recommenders.Item2vec.Item2vec_cont import Item2vec_Temp_Cont_model

@@ -47,7 +47,6 @@ class Metrics:
             return []
         return ast.literal_eval(val)
 
-    #Gera metricas a partir do arquivo de recomendações a partir do filepath dado, concatena o resultado no dataframe final
     def add_metrics(self, recomendation_filepath):
 
         for parameters in tqdm(os.listdir(recomendation_filepath)):

@@ -5,6 +5,7 @@ import scripts as kw
 from scripts.recommenders.Item2vec.Data_repr import DataRepr
 from .utils.recommendations import get_recommendations
 import pandas as pd
+import faiss
 import torch
 
 def get_cosine_similarity_matrix(embeddings, batch_size=256):
@@ -25,6 +26,29 @@ def get_cosine_similarity_matrix(embeddings, batch_size=256):
 
     return sim_matrix
 
+def get_topk_cosine_faiss(embeddings, k):
+
+    x = embeddings.astype(np.float32)
+    n, d = x.shape
+
+    # FAISS assumes contiguous memory
+    x = np.ascontiguousarray(x)
+
+    # --- Build index
+    index_cpu = faiss.IndexFlatIP(d)
+
+    if torch.cuda.is_available():
+        res = faiss.StandardGpuResources()
+        index = faiss.index_cpu_to_gpu(res, 0, index_cpu)
+    else:
+        index = index_cpu
+
+    index.add(x)
+
+    scores, neighbors = index.search(x, k + 1)
+
+    return neighbors[:, 1:], scores[:, 1:]
+
 def combine_embeddings(target_embeddings, context_embeddings, combination_strategy='avg_norm_after', use_norm=True):
 
     t = torch.from_numpy(target_embeddings).float()
@@ -38,6 +62,7 @@ def combine_embeddings(target_embeddings, context_embeddings, combination_strate
             t = _norm(t)
             c = _norm(c)
         combined = (t + c) / 2.0
+        combined = _norm(combined)
 
     elif combination_strategy == 'avg_norm_after':
         combined = (t + c) / 2.0
@@ -80,18 +105,16 @@ class ItemSim:
 
         self.df_train = df
 
-        sim_matrix = get_cosine_similarity_matrix(self.item_embeddings, batch_size=8)
-
-        n_items = sim_matrix.shape[0]
+        n_items = self.item_embeddings.shape[0]
         self.k = min(self.k, n_items - 1)
 
-        np.fill_diagonal(sim_matrix, -np.inf)
-
-        top_k_indices = np.argpartition(-sim_matrix, kth=self.k-1, axis=1)[:, :self.k]
-        top_k_scores = np.array([sim_matrix[i, top_k_indices[i]] for i in range(n_items)])
+        top_k_indices, top_k_scores = get_topk_cosine_faiss(
+            self.item_embeddings,
+            self.k
+        )
 
         item_ids = self.data_repr.get_item_id(np.arange(n_items))
-        
+
         self.item_item_sim = pd.DataFrame({
             kw.COLUMN_ITEM_ID: np.repeat(item_ids, self.k),
             'neighbor': self.data_repr.get_item_id(top_k_indices.flatten()),

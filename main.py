@@ -30,12 +30,12 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['ciaodvd']
+DATASETS = ['ml-100k']
 
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['Item2Vec_itemSim']
+RECOMMENDERS = ['ALS', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
