@@ -30,7 +30,7 @@ if gpus:
 else:
     print('No GPU available')
 
-DATASETS = ['ml-100k']
+DATASETS = ['ml-100k', 'ml-1m', 'ciaodvd', 'amazon-books', 'amazon-beauty', 'bestbuy']
 
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
