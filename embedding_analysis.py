@@ -38,18 +38,11 @@ RECOMMENDERS = ["Item2Vec_itemSim", "TimeI2V_Disc_Aug", "TimeI2V_Cont"]
 MOVIE_ID = 1974
 TOP_N = 20
 
-# movies.csv columns: "id_item";"title";"genres"
 movies_path = os.path.join("datasets", DATASET_NAME, "movies.csv")
 movies_df = pd.read_csv(movies_path, sep=";", quotechar='"')
 
 required_cols = {"id_item", "title"}
-if not required_cols.issubset(movies_df.columns):
-    raise ValueError(
-        f"Unexpected schema in {movies_path}. Expected columns {sorted(required_cols)}; "
-        f"found {list(movies_df.columns)}"
-    )
 
-# Normalize to a common name used below
 movies_df = movies_df.rename(columns={"id_item": "movieId"})
 
 base_results_dir = os.path.join("results", "embeddings", "test", DATASET_NAME)

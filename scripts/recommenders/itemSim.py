@@ -8,33 +8,12 @@ import pandas as pd
 import faiss
 import torch
 
-def get_cosine_similarity_matrix(embeddings, batch_size=256):
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    emb = torch.from_numpy(embeddings).to(device='cuda', dtype=torch.float32)
-    emb_t = emb.T
-    
-    n = emb.shape[0]
-
-    sim_matrix = np.empty((n, n), dtype=np.float32)
-
-    for i in range(0, n, batch_size):
-
-        batch = emb[i : i + batch_size]
-        scores = batch @ emb_t
-        sim_matrix[i : i + batch_size] = scores.cpu().numpy()
-
-    return sim_matrix
-
 def get_topk_cosine_faiss(embeddings, k):
 
     x = embeddings.astype(np.float32)
     n, d = x.shape
-
-    # FAISS assumes contiguous memory
     x = np.ascontiguousarray(x)
 
-    # --- Build index
     index_cpu = faiss.IndexFlatIP(d)
 
     if torch.cuda.is_available():
@@ -57,25 +36,11 @@ def combine_embeddings(target_embeddings, context_embeddings, combination_strate
     def _norm(x):
         return x / (x.norm(dim=1, keepdim=True) + 1e-9)
 
-    if combination_strategy == 'avg_norm_before':
-        if use_norm:
-            t = _norm(t)
-            c = _norm(c)
-        combined = (t + c) / 2.0
-        combined = _norm(combined)
-
-    elif combination_strategy == 'avg_norm_after':
-        combined = (t + c) / 2.0
-        if use_norm:
-            combined = _norm(combined)
-
-    elif combination_strategy == 'target_only':
-        combined = t
-        if use_norm:
-            combined = _norm(combined)
-
-    else:
-        raise ValueError(f"Unknown combination strategy: {combination_strategy}")
+    if use_norm:
+        t = _norm(t)
+        c = _norm(c)
+        
+    combined = t + c
 
     return combined.numpy()
 

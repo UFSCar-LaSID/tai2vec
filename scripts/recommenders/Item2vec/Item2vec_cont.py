@@ -107,6 +107,7 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         return np.round(weights, 2)
 
     def _generate_positive_data(self):
+
         X_target, X_context, sample_weights = [], [], []
 
         for user_id in range(len(self.interaction_list)):
@@ -135,9 +136,9 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
                     sample_weights.extend(w1)
                 else:
                     dist = np.abs(cumulative_time[i] - cumulative_time[context_indices])
-                    w1 = self._calculate_linear_weights(norm_weights[i], norm_weights[context_indices])
+                    #w1 = self._calculate_linear_weights(norm_weights[i], norm_weights[context_indices])
                     w2 = self._calculate_z_weights(dist, mean, std)
-                    sample_weights.extend((w1+w2)/2)
+                    sample_weights.extend(w2)
 
         print("\nNumber of samples:", len(X_target))
         print("Number of negative samples:", len(X_target) * self.negative_samples)
@@ -190,13 +191,93 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         trainer = Item2VecTrainer(self, self.model)
         self.model = trainer.train(dataloader, self.data_repr)
 
+
+def plot_weights_for_user(ax, df_user, user_id, model, plot_mode):
+    """
+    Plota os pesos temporais para um determinado usuário em um eixo de subplot.
+    O eixo X está em HORAS.
+    """
+    df_processed = model.timestamp_cum(df_user)
+    
+    # ==========================
+    # Tempo cumulativo
+    # ==========================
+
+    # Em segundos (para cálculo – não muda nada)
+    cumulative_seconds = df_processed[kw.COLUMN_TIME_CUMSUM].values
+
+    # 🔹 Para o eixo X: converter para HORAS
+    cumulative_hours = cumulative_seconds / 84600.0
+
+    norm_times = df_processed[kw.COLUMN_TIME_CUMSUM_NORM].values
+    mean_val = df_processed[kw.COLUMN_MEAN].iloc[0]
+    std_val = df_processed[kw.COLUMN_STD].iloc[0]
+
+    indices_para_plotar = {
+        'Primeiro Item': 0,
+        'Item do Meio': len(cumulative_hours) // 2,
+        'Último Item': len(cumulative_hours) - 1
+    }
+
+    cores = {
+        'Primeiro Item': '#1f77b4',
+        'Item do Meio': '#ff7f0e',
+        'Último Item': '#2ca02c'
+    }
+
+    for titulo, idx in indices_para_plotar.items():
+        anchor_time = cumulative_seconds[idx]
+
+        # Distâncias continuam em segundos
+        dist = np.abs(cumulative_seconds - anchor_time)
+
+        w_z = model._calculate_z_weights(dist, mean_val, std_val)
+        w_lin = model._calculate_linear_weights(norm_times[idx], norm_times)
+
+        cor = cores[titulo]
+        estilo_plot = {'marker': 'o', 'markersize': 6, 'linewidth': 2.5, 'alpha': 0.7}
+
+        if plot_mode == 'log':
+            ax.plot(cumulative_hours, w_lin, label=titulo, color=cor, **estilo_plot)
+        elif plot_mode == 'z-score':
+            ax.plot(cumulative_hours, w_z, label=titulo, color=cor, **estilo_plot)
+        elif plot_mode == 'mean':
+            w_mean = (w_lin + w_z) / 2
+            ax.plot(cumulative_hours, w_mean, label=titulo, color=cor, **estilo_plot)
+
+        # Linha vertical também em horas
+        ax.axvline(
+            x=cumulative_hours[idx],
+            color=cor,
+            linestyle='--',
+            alpha=0.8,
+            linewidth=2
+        )
+
+    title_map = {
+        'z-score': 'Z-Score',
+        'log': 'Log-Linear',
+        'mean': 'Média (Z-Score + Log-Linear)'
+    }
+
+    ax.set_title(f'Parâmetro de decaimento = {model.decay_rate}', fontsize=20)
+    ax.set_xlabel('Tempo acumulado (dias)', fontsize=16)
+    ax.set_ylabel('Peso', fontsize=16)
+    ax.legend(title='Item alvo')
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(0.2, 1.05)
+
+
 if __name__ == "__main__":
+
     import matplotlib.pyplot as plt
     import pandas as pd
     import numpy as np
     from scripts.dataset import get_datasets 
     
-    TARGET_DATASET_NAME = 'kuaisim' 
+    PLOT_MODE = 'mean'
+    
+    TARGET_DATASET_NAME = 'amazon-books' 
     
     print(f"Loading real dataset: {TARGET_DATASET_NAME}...")
     target_dataset = None
@@ -210,54 +291,51 @@ if __name__ == "__main__":
 
     df_real = target_dataset.get_dataframe()
     user_counts = df_real[kw.COLUMN_USER_ID].value_counts()
-    valid_users = user_counts[user_counts > 20].index
-    
-    selected_user_id = valid_users[0]
-    df_user = df_real[df_real[kw.COLUMN_USER_ID] == selected_user_id].copy()
 
-    # Model Init (Only need 1 instance to process time)
-    model = Item2vec_Temp_Cont_model(
+    try:
+        user_50_items_id = user_counts[user_counts == 50].index[0]
+    except IndexError:
+        raise ValueError("Não foi encontrado usuário com 50 itens.")
+
+    df_user_50 = df_real[df_real[kw.COLUMN_USER_ID] == user_50_items_id].copy()
+
+    # --- INÍCIO DA ALTERAÇÃO ---
+    # Cria dois modelos com decay_rate diferentes
+    model_decay_3 = Item2vec_Temp_Cont_model(
         embedding_dir="tmp", 
-        decay_rate=2, 
-        min_time_diff=60, 
+        decay_rate=3, 
+        min_time_diff=300, 
+        weight_floor=0.3
+    )
+    
+    model_decay_5 = Item2vec_Temp_Cont_model(
+        embedding_dir="tmp", 
+        decay_rate=5, 
+        min_time_diff=300, 
         weight_floor=0.3
     )
 
-    print("Processing timestamps...")
-    df_processed = model.timestamp_cum(df_user)
+    # Cria os subplots 1x2
+    fig, axes = plt.subplots(1, 2, figsize=(20, 8))
     
-    cumulative_times = df_processed[kw.COLUMN_TIME_CUMSUM].values
-    norm_times = df_processed[kw.COLUMN_TIME_CUMSUM_NORM].values
-    mean_val = df_processed[kw.COLUMN_MEAN].iloc[0]
-    std_val = df_processed[kw.COLUMN_STD].iloc[0]
+    # Plota para o modelo com decay_rate=3 no subplot da esquerda
+    plot_weights_for_user(
+        axes[0],
+        df_user_50,
+        user_50_items_id,
+        model_decay_3,
+        PLOT_MODE
+    )
     
-    print(f"User Mean Gap: {mean_val:.2f}, Std: {std_val:.2f}")
+    # Plota para o modelo com decay_rate=5 no subplot da direita
+    plot_weights_for_user(
+        axes[1],
+        df_user_50,
+        user_50_items_id,
+        model_decay_5,
+        PLOT_MODE
+    )
 
-    idx_mid = len(cumulative_times) // 2
-    anchor_time = cumulative_times[idx_mid]
-    anchor_norm = norm_times[idx_mid]
-    
-    dist = np.abs(cumulative_times - anchor_time)
-    z_score = (dist - mean_val) / (std_val + 1e-9)
-    z_score = np.clip(z_score, 0, 20)
-    w_z = np.where(z_score == 0, 1, 1 - np.power((z_score / (z_score + 1)), 2)) # decay_rate=2
-    w_z = np.round(w_z, 2)
-    
-    norm_diff = np.abs(norm_times - anchor_norm)
-    similarity = 1 - norm_diff
-    similarity = np.maximum(similarity, 1e-9)
-    w_lin = 1 - np.log2(1/similarity)
-    w_lin = np.maximum(w_lin, 0.3) # Floor
-    w_lin = np.round(w_lin, 2)
-
-    plt.figure(figsize=(14, 6))
-    plt.plot(cumulative_times, w_lin, marker='.', label='Log-Linear (-1)', color='blue', alpha=0.5)
-    plt.plot(cumulative_times, w_z, marker='.', label='Z-Score (exp=2)', color='red', alpha=0.5)
-    
-    plt.axvline(x=anchor_time, color='black', linestyle='--', label='Anchor Item')
-    plt.title(f'Method Comparison: Linear vs Z-Score\nUser {selected_user_id}', fontsize=14)
-    plt.xlabel('Time (s)')
-    plt.ylabel('Weight')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
     plt.show()
+    # --- FIM DA ALTERAÇÃO ---

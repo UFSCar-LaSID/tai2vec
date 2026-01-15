@@ -67,8 +67,6 @@ class Item2VecModel(nn.Module):
     
     def get_loss(self, targets, contexts, weights=None):
 
-        sum_negatives = self.loss_sum
-
         B, Kp1 = targets.shape
         # Flatten for embedding lookups
         logits = self.forward(targets.view(-1), contexts.view(-1)).view(B, Kp1)
@@ -78,11 +76,10 @@ class Item2VecModel(nn.Module):
         loss_pos = torch.nn.functional.softplus(-pos_logits)
         # -log sigma(-neg) = softplus(neg)
         loss_neg = torch.nn.functional.softplus(neg_logits)
-        if sum_negatives:
-            pair_loss = loss_pos + loss_neg.sum(dim=1)
-        else:
-            pair_loss = loss_pos + loss_neg.mean(dim=1)
+
+        pair_loss = loss_pos + loss_neg.sum(dim=1)
             
         if weights is not None:
             pair_loss = pair_loss * weights
+
         return pair_loss.mean()
