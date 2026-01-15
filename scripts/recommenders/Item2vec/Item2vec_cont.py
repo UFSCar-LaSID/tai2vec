@@ -275,7 +275,7 @@ if __name__ == "__main__":
     import numpy as np
     from scripts.dataset import get_datasets 
     
-    PLOT_MODE = 'mean'
+    PLOT_MODE = 'z-score'
     
     TARGET_DATASET_NAME = 'amazon-books' 
     
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     # Cria dois modelos com decay_rate diferentes
     model_decay_3 = Item2vec_Temp_Cont_model(
         embedding_dir="tmp", 
-        decay_rate=3, 
+        decay_rate=2, 
         min_time_diff=300, 
         weight_floor=0.3
     )

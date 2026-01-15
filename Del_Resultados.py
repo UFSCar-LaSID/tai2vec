@@ -1,11 +1,11 @@
 import os
 import shutil
 
-datasets = ['ciaodvd', 'amazon-books', 'amazon-beauty']
+datasets = ['ciaodvd']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #  'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize'
 
-recommenders = ['TimeI2V_Cont']
+recommenders = ['all']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 

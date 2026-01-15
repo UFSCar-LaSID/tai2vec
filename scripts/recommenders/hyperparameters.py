@@ -29,7 +29,7 @@ ITEMSIM_RECOMMENDER_HYPERPARAMETERS = {
 ITEM2VEC_HYPERPARAMETERS = {
     'w_size': [5, 10],
     'learning_rate': [0.25, 0.025],
-    'subsample': [1e-2, 1e-3, 1e-4],
+    'subsample': [1e-3, 1e-4, 1e-5],
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [1e-6],
@@ -39,7 +39,7 @@ ITEM2VEC_HYPERPARAMETERS = {
 ITEM2VEC_TEMP_HYPERPARAMETERS = {
     'w_size': [10],
     'learning_rate': [0.25, 0.025],
-    'subsample': [1e-3, 1e-4],
+    'subsample': [1e-3, 1e-4, 1e-5],
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [1e-6],
@@ -51,7 +51,7 @@ ITEM2VEC_TEMP_HYPERPARAMETERS = {
 ITEM2VEC_CONT_HYPERPARAMETERS = {
     'w_size': [10],
     'learning_rate': [0.25, 0.025],
-    'subsample': [1e-3, 1e-4],
+    'subsample': [1e-3, 1e-4, 1e-5],
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [1e-6],
