@@ -15,27 +15,15 @@ from scripts.recommenders import get_recommenders
 from scripts.recsys import remove_single_interactions, remove_cold_start
 from scripts.metrics import Metrics
 from shutil import rmtree
-import tensorflow as tf
 import torch
 print("Using PyTorch version:", torch.__version__, "with CUDA support:", torch.cuda.is_available())
 
-gpus = tf.config.list_physical_devices('GPU')
-if gpus:
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
-
-    for i, gpu in enumerate(gpus):
-        details = tf.config.experimental.get_device_details(gpu)
-        print(f"GPU {i}: {details.get('device_name', gpu.name)}")
-else:
-    print('No GPU available')
-
-DATASETS = ['amazon-beauty']
+DATASETS = ['amazon-beauty', 'amazon-books', 'ciaodvd']
 
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['ALS',  'TimeI2V_Cont']
+RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
