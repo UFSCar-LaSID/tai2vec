@@ -18,12 +18,12 @@ from shutil import rmtree
 import torch
 print("Using PyTorch version:", torch.__version__, "with CUDA support:", torch.cuda.is_available())
 
-DATASETS = ['amazon-beauty', 'amazon-books', 'ciaodvd']
+DATASETS = ['amazon-beauty', 'ciaodvd']
 
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
 
-RECOMMENDERS = ['ALS', 'BPR', 'Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
+RECOMMENDERS = ['TimeI2V_Disc_Aug']
 # 'ALS', 'BPR'
 # 'ALS_itemSim', 'BPR_itemSim',
 # 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
