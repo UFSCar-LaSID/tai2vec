@@ -15,7 +15,7 @@ from .torchmodules.pytorch_dataset import create_item2vec_dataloader
 from .torchmodules.pytorch_trainer import Item2VecTrainer
 from .torchmodules.pytorch_model import Item2VecModel
 
-class Item2vec_Temp_Cont_model(Item2vec_abstract):
+class Item2vec_Cont_Hybrid_model(Item2vec_abstract):
     def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, 
                  min_learning_rate=0.0025, subsample=0.0001, batch_size=kw.MEM_SIZE_LIMIT, 
                  negative_samples=5, negative_exp=0.75, min_weight=0.3, 
@@ -135,9 +135,9 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
                     sample_weights.extend(w1)
                 else:
                     dist = np.abs(cumulative_time[i] - cumulative_time[context_indices])
-                    #w1 = self._calculate_linear_weights(norm_weights[i], norm_weights[context_indices])
+                    w1 = self._calculate_linear_weights(norm_weights[i], norm_weights[context_indices])
                     w2 = self._calculate_z_weights(dist, mean, std)
-                    sample_weights.extend(w2)
+                    sample_weights.extend((w1+w2)/2)
 
         print("\nNumber of samples:", len(X_target))
         print("Number of negative samples:", len(X_target) * self.negative_samples)

@@ -18,21 +18,19 @@ from shutil import rmtree
 import torch
 print("Using PyTorch version:", torch.__version__, "with CUDA support:", torch.cuda.is_available())
 
-DATASETS = ['amazon-beauty', 'ciaodvd']
+DATASETS = ['amazon-books', 'amazon-beauty', 'ciaodvd', 'ml-100k']
 
-#'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
-#'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize', 'AmazonBooks', 'AmazonBeauty' 
+RECOMMENDERS = ['Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont', 'TimeI2V_Cont_Hybrid']
 
-RECOMMENDERS = ['TimeI2V_Cont']
 # 'ALS', 'BPR'
-# 'ALS_itemSim', 'BPR_itemSim',
-# 'ALS_itemSim_temporal', 'BPR_itemSim_temporal', 
-# 'Item2Vec_itemSim', 'TimeI2V_Disc', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont', 'Gemsim_itemSim'
+# 'Item2Vec_itemSim, 'TimeI2V_Disc_Aug', 'TimeI2V_Cont', 'TimeI2V_Cont_Hybrid'
 
-MODES = ['TrainEmbeddings', 'Recommend', 'Evaluate']                           
+MODES = ['TrainEmbeddings', 'Recommend', 'Evaluate']     
+
 # 'Recommend', 'Evaluate', 'TrainEmbeddings'
 
 PARAMETER_TUNING = 'on_validation'
+
 # 'on_test', 'on_validation'
 
 def train_embeddings(df, embeddings_filepath, embedding_model, parameters):
@@ -160,7 +158,6 @@ for dataset in get_datasets(datasets=DATASETS):
                 embedding_params = {k: v for k, v in best_parameters_dict.items() if k in recommender.get_embeddings_hyperparameters()}
                 rec_params = {k: v for k, v in best_parameters_dict.items() if k in recommender.get_recommender_hyperparameters()}
 
-                # Paths for the test stage
                 embeddings_filepath = get_embeddings_filepath(kw.TEST, dataset_name, recommender.get_embeddings_name(), embedding_params)
                 recomendation_filepath = get_recomendation_filepath(kw.TEST, dataset_name, recommender_name)
                 metrics_filepath = get_metrics_filepath(kw.TEST, dataset_name, recommender_name)

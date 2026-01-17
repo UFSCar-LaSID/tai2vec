@@ -1,7 +1,7 @@
 import os
 import shutil
 
-datasets = ['ciaodvd', 'amazon-beauty']
+datasets = ['amazon-books']
 #'RetailRocket-Transactions', 'DeliciousBookmarks', 'MovieLens', 'BestBuy',
 #  'Taobao', 'Events', 'CiaoDVD', 'NetflixPrize'
 
