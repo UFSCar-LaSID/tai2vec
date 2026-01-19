@@ -48,9 +48,6 @@ def create_item2vec_dataloader(X_target, X_context, cumulative_table, negative_s
     
     dataset = Item2VecDataset(X_target, X_context, cumulative_table, negative_samples, weights)
     
-    # enable pin_memory when CUDA is available so trainer's .to(..., non_blocking=True) is effective
-    pin_memory = torch.cuda.is_available()
-
     return DataLoader(
         dataset,
         batch_size=batch_size,

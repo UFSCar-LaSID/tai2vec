@@ -69,7 +69,7 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         def scale_group(group):
             if len(group) == 1:
                 return pd.Series([self.min_weight], index=group.index)
-            scaler = MinMaxScaler(feature_range=(self.min_weight, 1))
+            scaler = MinMaxScaler(feature_range=(self.weight_floor, 1))
             scaled = scaler.fit_transform(group.values.reshape(-1, 1)).flatten()
             return pd.Series(scaled, index=group.index)
         
@@ -96,9 +96,10 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
     def _calculate_linear_weights(self, norm_weights_i, norm_weights_context):
 
         norm_diff = np.abs(norm_weights_i - norm_weights_context)
-        similarity = (1 - norm_diff) + 1e-9
+        similarity = (1 - norm_diff)
+        weights = np.maximum(similarity, self.weight_floor)
         
-        return np.round(similarity, 2)
+        return np.round(weights, 2)
 
     def _generate_positive_data(self):
 
@@ -130,9 +131,9 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
                     sample_weights.extend(w1)
                 else:
                     dist = np.abs(cumulative_time[i] - cumulative_time[context_indices])
-                    #w1 = self._calculate_linear_weights(norm_weights[i], norm_weights[context_indices])
+                    w1 = self._calculate_linear_weights(norm_weights[i], norm_weights[context_indices])
                     w2 = self._calculate_z_weights(dist, mean, std)
-                    sample_weights.extend(w2)
+                    sample_weights.extend((w1+w2)/2)
 
         print("\nNumber of samples:", len(X_target))
         print("Number of negative samples:", len(X_target) * self.negative_samples)
@@ -295,14 +296,14 @@ if __name__ == "__main__":
 
     # --- INÍCIO DA ALTERAÇÃO ---
     # Cria dois modelos com decay_rate diferentes
-    model_decay_3 = Item2vec_Temp_Cont_model(
+    model_decay_3 = Item2vec_Cont_Hybrid_model(
         embedding_dir="tmp", 
         decay_rate=3, 
         min_time_diff=300, 
         weight_floor=0.3
     )
     
-    model_decay_5 = Item2vec_Temp_Cont_model(
+    model_decay_5 = Item2vec_Cont_Hybrid_model(
         embedding_dir="tmp", 
         decay_rate=5, 
         min_time_diff=300, 
@@ -321,6 +322,7 @@ if __name__ == "__main__":
         PLOT_MODE
     )
     
+    # Plota para o modelo com decay_rate=5 no subplot da direita
     plot_weights_for_user(
         axes[1],
         df_user_50,
@@ -331,3 +333,4 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
+    # --- FIM DA ALTERAÇÃO ---

@@ -3,7 +3,6 @@ import pickle
 import os
 import scripts as kw
 from scripts.recommenders.Item2vec.Data_repr import DataRepr
-from .utils.recommendations import get_recommendations
 import pandas as pd
 import faiss
 import torch
@@ -86,5 +85,32 @@ class ItemSim:
             'sim': top_k_scores.flatten()
         })
 
-    def recommend(self, df_test):
-        return get_recommendations(self.df_train, df_test, self.item_item_sim, self.data_repr)
+    def recommend(self, df_test, top_n=kw.TOP_N):
+
+        target_users = df_test[kw.COLUMN_USER_ID].unique()
+        
+        item_based_neighborhood = pd.merge(
+            self.df_train[self.df_train[kw.COLUMN_USER_ID].isin(target_users)], 
+            self.item_item_sim, 
+            on=kw.COLUMN_ITEM_ID, 
+            how='inner'
+        )
+        
+        final_sim = item_based_neighborhood.groupby([kw.COLUMN_USER_ID, 'neighbor'])['sim'].mean().reset_index()
+        
+        final_sim = final_sim.merge(
+            self.df_train, 
+            how='left', 
+            left_on=[kw.COLUMN_USER_ID, 'neighbor'], 
+            right_on=[kw.COLUMN_USER_ID, kw.COLUMN_ITEM_ID]
+        )
+        final_sim = final_sim[final_sim[kw.COLUMN_ITEM_ID].isna()].drop(columns=[kw.COLUMN_ITEM_ID])
+        
+        recommendations = final_sim.sort_values('sim', ascending=False).groupby(kw.COLUMN_USER_ID).head(top_n)
+        
+        recommendations['rank'] = recommendations.groupby(kw.COLUMN_USER_ID).cumcount() + 1
+        
+        recommendations = recommendations.rename(columns={'neighbor': kw.COLUMN_ITEM_ID})
+        recommendations = recommendations[[kw.COLUMN_USER_ID, kw.COLUMN_ITEM_ID, 'rank']].sort_values([kw.COLUMN_USER_ID, 'rank']).reset_index(drop=True)
+
+        return recommendations
