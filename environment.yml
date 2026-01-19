@@ -1,4 +1,4 @@
-name: recsys2
+name: recsys
 channels:
   - pytorch
   - nvidia
@@ -44,7 +44,6 @@ dependencies:
       - iniconfig==2.3.0
       - jurity==2.1.0
       - kaleido==1.1.0
-      - keras==3.11.1
       - libclang==18.1.1
       - lightning==2.5.2
       - lightning-utilities==0.15.1
@@ -90,11 +89,11 @@ dependencies:
       - scs==3.2.8
       - simplejson==3.20.2
       - sympy==1.14.0
-      - tensorboard==2.19.0
+      - tensorboard==2.16.2
       - tensorboard-data-server==0.7.2
-      - tensorflow-cpu==2.19.0
-      - tensorflow-io-gcs-filesystem==0.37.1
-      - termcolor==3.1.0
+      - termcolor==2.4.0
+      - threadpoolctl==3.5.0
+      - tomli==2.0.1
       - torch==2.7.1
       - torchmetrics==1.8.0
       - triton==3.3.1

@@ -5,6 +5,8 @@ os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
 
 import numpy as np
 import pandas as pd
+pd.set_option('future.no_silent_downcasting', True)
+
 from sklearn.preprocessing import MinMaxScaler
 import torch
 import scripts as kw
@@ -58,7 +60,7 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         upper_clip = upper_clip.fillna(np.inf)
         
         # 4. Apply Clipping
-        df[kw.COLUMN_TIME_DIFF] = df[kw.COLUMN_TIME_DIFF].clip(upper=upper_clip)
+        df[kw.COLUMN_TIME_DIFF] = df[kw.COLUMN_TIME_DIFF].clip(upper=upper_clip).infer_objects(copy=False)
         
         # 5. Stats & Cumsum
         df[kw.COLUMN_MEAN] = df.groupby(kw.COLUMN_USER_ID)['valid_diffs'].transform('mean').fillna(0)
@@ -296,14 +298,14 @@ if __name__ == "__main__":
 
     # --- INÍCIO DA ALTERAÇÃO ---
     # Cria dois modelos com decay_rate diferentes
-    model_decay_3 = Item2vec_Cont_Hybrid_model(
+    model_decay_3 = Item2vec_Temp_Cont_model(
         embedding_dir="tmp", 
         decay_rate=3, 
         min_time_diff=300, 
         weight_floor=0.3
     )
     
-    model_decay_5 = Item2vec_Cont_Hybrid_model(
+    model_decay_5 = Item2vec_Temp_Cont_model(
         embedding_dir="tmp", 
         decay_rate=5, 
         min_time_diff=300, 

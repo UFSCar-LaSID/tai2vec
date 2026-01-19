@@ -15,7 +15,6 @@ from .torchmodules.pytorch_dataset import create_item2vec_dataloader
 from .torchmodules.pytorch_trainer import Item2VecTrainer
 from .torchmodules.pytorch_model import Item2VecModel
 from scripts.recommenders.utils.monitor import monitor
-from scripts.recommenders.Item2vec.Item2vec_disc import Item2vec_temp_model
 
 class Item2vec_model(Item2vec_abstract):
 

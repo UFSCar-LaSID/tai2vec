@@ -1,17 +1,11 @@
-import os
+from abc import ABC
 import numpy as np
-import pandas as pd
-import tensorflow as tf
-from keras import layers, Model, initializers, regularizers, callbacks, Input
-from keras.optimizers import Adam
+import os
+import pickle
 import scripts as kw
-from scripts.recommenders.Item2vec.Data_repr import DataRepr
 import abc
 import pickle
-from keras.mixed_precision import set_global_policy
 import torch
-import torch.nn as nn
-from scripts.recommenders.utils.monitor import monitor
 
 class Item2vec_abstract(abc.ABC):
 
