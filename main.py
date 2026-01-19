@@ -20,7 +20,7 @@ print("Using PyTorch version:", torch.__version__, "with CUDA support:", torch.c
 
 DATASETS = ['amazon-books', 'amazon-beauty', 'ciaodvd', 'ml-100k']
 
-RECOMMENDERS = ['Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont', 'TimeI2V_Cont_Hybrid']
+RECOMMENDERS = ['TimeI2V_Cont_Hybrid']
 
 # 'ALS', 'BPR'
 # 'Item2Vec_itemSim, 'TimeI2V_Disc_Aug', 'TimeI2V_Cont', 'TimeI2V_Cont_Hybrid'

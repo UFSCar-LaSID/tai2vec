@@ -69,7 +69,7 @@ class Item2vec_Cont_Hybrid_model(Item2vec_abstract):
         def scale_group(group):
             if len(group) == 1:
                 return pd.Series([self.min_weight], index=group.index)
-            scaler = MinMaxScaler(feature_range=(self.min_weight, 1))
+            scaler = MinMaxScaler(feature_range=(self.weight_floor, 1))
             scaled = scaler.fit_transform(group.values.reshape(-1, 1)).flatten()
             return pd.Series(scaled, index=group.index)
         
@@ -96,11 +96,7 @@ class Item2vec_Cont_Hybrid_model(Item2vec_abstract):
     def _calculate_linear_weights(self, norm_weights_i, norm_weights_context):
 
         norm_diff = np.abs(norm_weights_i - norm_weights_context)
-        similarity = (1 - norm_diff) + 1e-9
-        
-        #log_term = np.log2(1 / similarity)
-        #weights = 1 - log_term
-
+        similarity = (1 - norm_diff)
         weights = np.maximum(similarity, self.weight_floor)
         
         return np.round(weights, 2)
@@ -300,14 +296,14 @@ if __name__ == "__main__":
 
     # --- INÍCIO DA ALTERAÇÃO ---
     # Cria dois modelos com decay_rate diferentes
-    model_decay_3 = Item2vec_Temp_Cont_model(
+    model_decay_3 = Item2vec_Cont_Hybrid_model(
         embedding_dir="tmp", 
         decay_rate=3, 
         min_time_diff=300, 
         weight_floor=0.3
     )
     
-    model_decay_5 = Item2vec_Temp_Cont_model(
+    model_decay_5 = Item2vec_Cont_Hybrid_model(
         embedding_dir="tmp", 
         decay_rate=5, 
         min_time_diff=300, 

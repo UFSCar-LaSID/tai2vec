@@ -98,12 +98,7 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         norm_diff = np.abs(norm_weights_i - norm_weights_context)
         similarity = (1 - norm_diff) + 1e-9
         
-        #log_term = np.log2(1 / similarity)
-        #weights = 1 - log_term
-
-        weights = np.maximum(similarity, self.weight_floor)
-        
-        return np.round(weights, 2)
+        return np.round(similarity, 2)
 
     def _generate_positive_data(self):
 
@@ -326,7 +321,6 @@ if __name__ == "__main__":
         PLOT_MODE
     )
     
-    # Plota para o modelo com decay_rate=5 no subplot da direita
     plot_weights_for_user(
         axes[1],
         df_user_50,
@@ -337,4 +331,3 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
-    # --- FIM DA ALTERAÇÃO ---
