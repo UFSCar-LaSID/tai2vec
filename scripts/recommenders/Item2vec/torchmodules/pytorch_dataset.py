@@ -1,6 +1,11 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
+import scripts as kw
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
 
 class Item2VecDataset(Dataset):
     
@@ -48,12 +53,18 @@ def create_item2vec_dataloader(X_target, X_context, cumulative_table, negative_s
     
     dataset = Item2VecDataset(X_target, X_context, cumulative_table, negative_samples, weights)
     
+    # Use um gerador para controlar a aleatoriedade no DataLoader
+    g = torch.Generator()
+    g.manual_seed(kw.RANDOM_STATE)
+
     return DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
-        num_workers= 16,
-        persistent_workers = 8,
+        num_workers=num_workers,
+        worker_init_fn=seed_worker,
+        generator=g,
+        persistent_workers=True if num_workers > 0 else False,
         collate_fn=dataset.negative_sampling_collate,
-        prefetch_factor=4
+        prefetch_factor=4 if num_workers > 0 else 2
     )

@@ -153,11 +153,21 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         self.data_repr = DataRepr(df, temporal_sorting=True)
         df = self._subsample_items(df)
 
-        self.interaction_list = self.data_repr.create_column_list(df, kw.COLUMN_ITEM_ID, transform=True)
-        self.cumsum_list = self.data_repr.create_column_list(df, kw.COLUMN_TIME_CUMSUM)
-        self.norm_weight_list = self.data_repr.create_column_list(df, kw.COLUMN_TIME_CUMSUM_NORM)
-        self.mean_list = self.data_repr.create_metrics_list(df, kw.COLUMN_MEAN)
-        self.std_list = self.data_repr.create_metrics_list(df, kw.COLUMN_STD)
+        df[kw.COLUMN_USER_ID] = self.data_repr.le_users.transform(df[kw.COLUMN_USER_ID])
+        df[kw.COLUMN_ITEM_ID] = self.data_repr.le_items.transform(df[kw.COLUMN_ITEM_ID])
+
+        if kw.COLUMN_DATETIME in df.columns:
+            sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_DATETIME])
+        else:
+            sorted_df = df.sort_values(by=[kw.COLUMN_USER_ID, kw.COLUMN_TIMESTAMP])
+
+        grouped = sorted_df.groupby(kw.COLUMN_USER_ID)
+
+        self.interaction_list = grouped[kw.COLUMN_ITEM_ID].agg(list).tolist()
+        self.cumsum_list = grouped[kw.COLUMN_TIME_CUMSUM].agg(list).tolist()
+        self.norm_weight_list = grouped[kw.COLUMN_TIME_CUMSUM_NORM].agg(list).tolist()
+        self.mean_list = grouped[kw.COLUMN_MEAN].first().tolist()
+        self.std_list = grouped[kw.COLUMN_STD].first().tolist()
         
         X_target, X_context, sample_weights = self._generate_positive_data()
 

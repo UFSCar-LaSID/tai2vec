@@ -15,9 +15,15 @@ from scripts.recsys import remove_single_interactions, remove_cold_start
 from scripts.metrics import Metrics
 from shutil import rmtree
 import torch
+
+torch.manual_seed(kw.RANDOM_STATE)
+np.random.seed(kw.RANDOM_STATE)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
 print("Using PyTorch version:", torch.__version__, "with CUDA support:", torch.cuda.is_available())
 
-DATASETS = ['ciaodvd']
+DATASETS = ['amazon-beauty', 'ciaodvd']
 
 RECOMMENDERS = ['TimeI2V_Cont']
 

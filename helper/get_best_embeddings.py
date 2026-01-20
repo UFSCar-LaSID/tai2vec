@@ -6,7 +6,6 @@ import pickle
 import numpy as np
 import pandas as pd
 
-# Ensure project root (so 'scripts' package is importable for pickle class definitions)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -15,12 +14,10 @@ try:
 except Exception as e:
     print(f"Warning: could not import 'scripts' package needed for unpickling: {e}", file=sys.stderr)
 
-# Fixed source (where test embeddings are) and destination (best embeddings root)
 src = os.path.abspath("results/embeddings/test/kuaisim")
 dest = os.path.abspath("best_embeddings")  # always best_embeddings
 overwrite = True  # always true
 
-# 1. Copy all immediate subfolders from src to dest (overwrite always)
 if not os.path.isdir(src):
     print(f"Source not a directory: {src}", file=sys.stderr)
     sys.exit(1)
@@ -126,4 +123,3 @@ for name in sorted(subfolders):
         print(f"Saved: {out_path}")
     except Exception as e:
         print(f"Failed to save CSV for '{name}': {e}")
-

@@ -28,7 +28,6 @@ DATASETS_TABLE = pd.DataFrame(
     columns=[kw.DATASET_ID, kw.DATASET_NAME, kw.DATASET_TYPE, kw.DATASET_SAMPLING_RATE]
 ).set_index(kw.DATASET_ID)
 
-
 class Dataset(object):
 
     def __init__(self, id, path):
