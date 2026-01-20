@@ -20,7 +20,7 @@ metric_type = ["Prec", "Rec", "F1_Score", "Hit_Rate", "NDCG"]
 top_k = [3, 5, 10, 20]
 
 # User configuration
-selected_datasets = ['amazon-beauty', 'ml-100k', 'ciaodvd', 'amazon-books'] # Choose datasets to plot
+selected_datasets = ['amazon-beauty', 'ml-100k', 'ciaodvd', 'amazon-books']
 n_rows = 2  # Number of rows in the subplot
 n_cols = 2  # Number of columns in the subplot
 

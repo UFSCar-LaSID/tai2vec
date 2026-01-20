@@ -23,11 +23,8 @@ class Item2VecTrainer:
         torch.manual_seed(kw.RANDOM_STATE)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(kw.RANDOM_STATE) # Garante semente para todas as GPUs
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
-            # As duas linhas abaixo foram removidas pois podem permitir não-determinismo
-            # torch.backends.cuda.matmul.allow_tf32 = True
-            # torch.backends.cudnn.allow_tf32 = True
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
 
         steps_per_epoch = len(dataloader) if hasattr(dataloader, '__len__') else 1
         total_iters = max(1, self.parent.epochs * steps_per_epoch)

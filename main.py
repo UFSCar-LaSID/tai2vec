@@ -18,14 +18,14 @@ import torch
 
 torch.manual_seed(kw.RANDOM_STATE)
 np.random.seed(kw.RANDOM_STATE)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+#torch.backends.cudnn.deterministic = True
+#torch.backends.cudnn.benchmark = False
 
 print("Using PyTorch version:", torch.__version__, "with CUDA support:", torch.cuda.is_available())
 
 DATASETS = ['amazon-beauty', 'ciaodvd']
 
-RECOMMENDERS = ['TimeI2V_Cont']
+RECOMMENDERS = ['TimeI2V_Cont', 'TimeI2V_Disc_Aug']
 
 # 'ALS', 'BPR'
 # 'Item2Vec_itemSim, 'TimeI2V_Disc_Aug', 'TimeI2V_Cont'
