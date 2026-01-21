@@ -22,7 +22,7 @@ class Item2VecTrainer:
         np.random.seed(kw.RANDOM_STATE)
         torch.manual_seed(kw.RANDOM_STATE)
         if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(kw.RANDOM_STATE) # Garante semente para todas as GPUs
+            torch.cuda.manual_seed(kw.RANDOM_STATE)
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
 
