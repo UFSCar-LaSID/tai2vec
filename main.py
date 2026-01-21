@@ -21,9 +21,9 @@ np.random.seed(kw.RANDOM_STATE)
 
 print("Using PyTorch version:", torch.__version__, "with CUDA support:", torch.cuda.is_available())
 
-DATASETS = ['amazon-beauty', 'ciaodvd']
+DATASETS = ['bestbuy']
 
-RECOMMENDERS = ['TimeI2V_Cont', 'TimeI2V_Disc_Aug']
+RECOMMENDERS = ['Item2Vec_itemSim', 'TimeI2V_Disc_Aug', 'TimeI2V_Cont']
 
 # 'ALS', 'BPR'
 # 'Item2Vec_itemSim, 'TimeI2V_Disc_Aug', 'TimeI2V_Cont'

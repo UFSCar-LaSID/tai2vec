@@ -35,7 +35,7 @@ ITEM2VEC_TEMP_HYPERPARAMETERS = {
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [1e-6],
-    'epochs': [20, 50],
+    'epochs': [20, 50, 100],
     'time_exp': [1, 1.5, 2],
     'min_time_diff': [300],
 }
@@ -47,7 +47,7 @@ ITEM2VEC_CONT_HYPERPARAMETERS = {
     'negative_samples': [7],
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [1e-6],
-    'epochs': [20, 50],
+    'epochs': [20, 50, 100],
     'weight_floor': [0.3, 0.5],
     'decay_rate': [3, 5],
     'min_time_diff': [300],
