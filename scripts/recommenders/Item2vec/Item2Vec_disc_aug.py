@@ -87,7 +87,6 @@ class Item2vec_temp_aug_model(Item2vec_abstract):
                 X_target.extend([curr_user[i]] * len(context_indices))
                 X_context.extend(curr_user[context_indices])
 
-                # Time-based weighting: 2 if same time group, else 1
                 weights = np.where(user_time_groups[i] == user_time_groups[context_indices], 2.0, 1.0)
 
                 sample_weights.extend(weights)

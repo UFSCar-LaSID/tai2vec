@@ -17,6 +17,12 @@ from .torchmodules.pytorch_dataset import create_item2vec_dataloader
 from .torchmodules.pytorch_trainer import Item2VecTrainer
 from .torchmodules.pytorch_model import Item2VecModel
 
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scripts.dataset import get_datasets 
+    
+
 class Item2vec_Temp_Cont_model(Item2vec_abstract):
     def __init__(self, embedding_dir, factors=100, w_size=-1, learning_rate=0.25, 
                  min_learning_rate=0.0025, subsample=0.0001, batch_size=kw.MEM_SIZE_LIMIT, 
@@ -200,20 +206,11 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
 
 
 def plot_weights_for_user(ax, df_user, user_id, model, plot_mode):
-    """
-    Plota os pesos temporais para um determinado usuário em um eixo de subplot.
-    O eixo X está em HORAS.
-    """
+
     df_processed = model.timestamp_cum(df_user)
     
-    # ==========================
-    # Tempo cumulativo
-    # ==========================
-
-    # Em segundos (para cálculo – não muda nada)
     cumulative_seconds = df_processed[kw.COLUMN_TIME_CUMSUM].values
 
-    # 🔹 Para o eixo X: converter para HORAS
     cumulative_hours = cumulative_seconds / 84600.0
 
     norm_times = df_processed[kw.COLUMN_TIME_CUMSUM_NORM].values
@@ -235,7 +232,6 @@ def plot_weights_for_user(ax, df_user, user_id, model, plot_mode):
     for titulo, idx in indices_para_plotar.items():
         anchor_time = cumulative_seconds[idx]
 
-        # Distâncias continuam em segundos
         dist = np.abs(cumulative_seconds - anchor_time)
 
         w_z = model._calculate_z_weights(dist, mean_val, std_val)
@@ -252,7 +248,6 @@ def plot_weights_for_user(ax, df_user, user_id, model, plot_mode):
             w_mean = (w_lin + w_z) / 2
             ax.plot(cumulative_hours, w_mean, label=titulo, color=cor, **estilo_plot)
 
-        # Linha vertical também em horas
         ax.axvline(
             x=cumulative_hours[idx],
             color=cor,
@@ -277,11 +272,6 @@ def plot_weights_for_user(ax, df_user, user_id, model, plot_mode):
 
 if __name__ == "__main__":
 
-    import matplotlib.pyplot as plt
-    import pandas as pd
-    import numpy as np
-    from scripts.dataset import get_datasets 
-    
     PLOT_MODE = 'mean'
     
     TARGET_DATASET_NAME = 'amazon-books' 
@@ -306,8 +296,7 @@ if __name__ == "__main__":
 
     df_user_50 = df_real[df_real[kw.COLUMN_USER_ID] == user_50_items_id].copy()
 
-    # --- INÍCIO DA ALTERAÇÃO ---
-    # Cria dois modelos com decay_rate diferentes
+
     model_decay_3 = Item2vec_Temp_Cont_model(
         embedding_dir="tmp", 
         decay_rate=3, 
@@ -322,10 +311,8 @@ if __name__ == "__main__":
         weight_floor=0.3
     )
 
-    # Cria os subplots 1x2
     fig, axes = plt.subplots(1, 2, figsize=(20, 8))
     
-    # Plota para o modelo com decay_rate=3 no subplot da esquerda
     plot_weights_for_user(
         axes[0],
         df_user_50,
@@ -334,7 +321,6 @@ if __name__ == "__main__":
         PLOT_MODE
     )
     
-    # Plota para o modelo com decay_rate=5 no subplot da direita
     plot_weights_for_user(
         axes[1],
         df_user_50,
@@ -345,4 +331,3 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
-    # --- FIM DA ALTERAÇÃO ---

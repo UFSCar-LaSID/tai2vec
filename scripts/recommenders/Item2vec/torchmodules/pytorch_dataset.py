@@ -53,7 +53,6 @@ def create_item2vec_dataloader(X_target, X_context, cumulative_table, negative_s
     
     dataset = Item2VecDataset(X_target, X_context, cumulative_table, negative_samples, weights)
     
-    # Use um gerador para controlar a aleatoriedade no DataLoader
     g = torch.Generator()
     g.manual_seed(kw.RANDOM_STATE)
 
