@@ -29,7 +29,8 @@ def print_progress(transferred_bytes, total_bytes):
     progress_bar.total = total_bytes / divisor
     progress_bar.n = transferred_bytes / divisor
     progress_bar.update(0)
-
+   
+   
 
 # Download a single dataset recursively
 def download_dataset_files(ftp_client, dataset_name, selected_files):
