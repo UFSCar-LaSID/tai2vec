@@ -42,7 +42,7 @@ EMBEDDINGS_HYPERPARAMETERS = 'embeddings_hyperparameters'
 DELIMITER = ';'
 QUOTECHAR = '"'
 QUOTING = csv.QUOTE_ALL
-ENCODING = "ISO-8859-1"
+ENCODING = "UTF-8"
 
 # Colunas dos CSVs e dataframmes
 COLUMN_ITEM_ID = 'id_item'
