@@ -2,7 +2,7 @@ import csv
 import numpy as np
 
 DATASET_PATH = 'datasets/'
-#DATASET_PATH = '/storage/recsys/1-datasets'
+RAW_PATH = 'raw/'
 
 # Dados gerais do experimento
 RANDOM_STATE = 2002
@@ -27,6 +27,7 @@ DATASET_ID = 'id'
 DATASET_NAME = 'name'
 DATASET_TYPE = 'type'
 DATASET_SAMPLING_RATE = 'sampling_rate'
+DATASET_PREPROCESS_FUNCTION = 'function'
 
 # Colunas da tabela de recomendadores
 RECOMMENDER_ID = 'id'
