@@ -31,6 +31,31 @@ Downloading the datasets is necessary to run the experiments. A list with downlo
 
 ### Preprocess datasets
 
+With the raw datasets downloaded, it's necessary to preprocess them before generating the recommendations.
+To do that, execute the following command:
+
+```
+python src/scripts/preprocess.py
+```
+
+Executing this Python code will ask you which datasets to preprocess. Input the datasets indexes separated by space to select the datasets.
+
+Another way to select the datasets is by executing the command below:
+
+```
+python scripts/preprocess.py --datasets <datasets>
+```
+
+Replace `<datasets>` with the names (or indexes) of the datasets separated by comma (","). The available datasets to preprocess are:
+
+- \[1\]: amazon-beauty
+- \[2\]: amazon-books
+- \[3\]: bestbuy
+- \[4\]: ciaodvd
+- \[5\]: ml-100k
+- \[6\]: ml-1m
+- all (it will use all datasets)
+
 ### Run the recommendation methods
 
 ### Generate metrics and plots
