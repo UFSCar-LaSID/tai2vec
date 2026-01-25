@@ -1,3 +1,10 @@
+
+import sys
+import os
+
+parent_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
+sys.path.append(parent_path)
+
 import numpy as np
 
 import pandas as pd
@@ -13,6 +20,11 @@ import scripts as kw
 
 import warnings
 import webbrowser
+
+from scripts.modules.dataset import DATASETS_TABLE
+from scripts.modules.recommenders import RECOMMENDERS_TABLE
+from scripts.modules.utils.parameters_handle import get_input
+
 warnings.filterwarnings('once')
 
 best_column = kw.EVALUATION_PARAMETER
@@ -23,12 +35,30 @@ main_path = "results/metrics/test/"
 main_file = os.listdir(main_path)
 curr_metric = "NDCG"
 
-dataframes = []           
+dataframes = []
 
-for dataset_name in main_file:
+dataset_options, recommender_options = get_input('Choose datasets to preprocess', [
+    {
+        'name': 'datasets',
+        'description': 'Dataset names (or indexes) to use. If not provided, a interactive menu will be shown. If "all" is provided, all datasets will be preprocessed.',
+        'options': DATASETS_TABLE,
+        'name_column': kw.DATASET_NAME
+    },
+    {
+        'name': 'recommenders',
+        'description': 'Recommender names (or indexes) to use. If not provided, a interactive menu will be shown. If "all" is provided, all recommenders will be used.',
+        'options': RECOMMENDERS_TABLE,
+        'name_column': kw.RECOMMENDER_NAME
+    }
+])
+
+dataset_names = [DATASETS_TABLE.loc[option_index, kw.DATASET_NAME] for option_index in dataset_options]
+recommender_names = [RECOMMENDERS_TABLE.loc[option_index, kw.RECOMMENDER_NAME] for option_index in recommender_options]
+
+for dataset_name in dataset_names:
         
     recommender_files = os.listdir(os.path.join(main_path, dataset_name))
-    for recommender_name in recommender_files:
+    for recommender_name in recommender_names:
                 
         metrics_path = os.path.join(main_path, dataset_name, recommender_name, "metrics.csv")
         metrics_aux = pd.read_csv(metrics_path, sep=';')
@@ -43,7 +73,6 @@ for dataset_name in main_file:
                 
 metrics_df = pd.concat(dataframes, ignore_index=True)
 
-#Remove a coluna Mean
 metrics_df = metrics_df[metrics_df.Recommender != 'ALS_mean']
 metrics_df = metrics_df[metrics_df.Recommender != 'BPR_mean']
 
@@ -80,8 +109,8 @@ for dataset_name in main_file:
     for i, recomendador in enumerate(df_aux.index):
         fig.add_trace(
             go.Scatter(
-                x=df_aux.columns,  # Colunas de métricas
-                y=df_aux.loc[recomendador],  # Pontuações do recomendador
+                x=df_aux.columns,
+                y=df_aux.loc[recomendador], 
                 mode='lines+markers',
                 marker=dict(symbol=marker_symbols[i], size=7, line=dict(color='black', width=0.5)),
                 name=recomendador
