@@ -1,5 +1,4 @@
 import csv
-import numpy as np
 
 DATASET_PATH = 'datasets/'
 RAW_PATH = 'raw/'

@@ -19,19 +19,9 @@ best_column = kw.EVALUATION_PARAMETER
 metric_type = ["Prec", "Rec", "F1_Score", "Hit_Rate", "NDCG"]
 top_k = [3, 5, 10, 20]
 
-# User configuration
-selected_datasets = ['amazon-beauty', 'ml-100k', 'ciaodvd', 'amazon-books']
-n_rows = 2  # Number of rows in the subplot
-n_cols = 2  # Number of columns in the subplot
-
 main_path = "results/metrics/test/"
-all_datasets = os.listdir(main_path)
+main_file = os.listdir(main_path)
 curr_metric = "NDCG"
-
-# Filter for selected datasets that exist
-main_file = [ds for ds in selected_datasets if ds in all_datasets]
-if len(main_file) != len(selected_datasets):
-    print("Warning: Some selected datasets were not found and will be skipped.")
 
 dataframes = []           
 
@@ -73,27 +63,8 @@ def function_1(x):
         x = x.split('@')[1]
     return x
 
-all_recommenders = saida['Recommender'].unique()
-colors = px.colors.qualitative.Plotly
-color_map = {rec: colors[i % len(colors)] for i, rec in enumerate(all_recommenders)}
-
-fig = make_subplots(
-    rows=n_rows, 
-    cols=n_cols, 
-    subplot_titles=main_file,
-    x_title="", 
-    y_title="",
-    horizontal_spacing=0.1,
-    vertical_spacing=0.1
-)
-
-marker_symbols = ['circle', 'square', 'diamond', 'cross', 'triangle-up', 'triangle-down', 'star', 'hexagram']
-
-for i, dataset_name in enumerate(main_file):
+for dataset_name in main_file:
     
-    row = (i // n_cols) + 1
-    col = (i % n_cols) + 1
-
     saida_aux = saida[saida['Dataset'] == dataset_name] 
         
     my_regex = "Recommender|" +  curr_metric + ".*"
@@ -102,48 +73,47 @@ for i, dataset_name in enumerate(main_file):
     df_aux = df_aux.set_index('Recommender')
     df_aux = df_aux.rename(columns=function_1)
     
-    for j, recomendador in enumerate(df_aux.index):
+    marker_symbols = ['circle', 'square', 'diamond', 'cross', 'triangle-up', 'triangle-down', 'star', 'hexagram']
+
+    fig = go.Figure()
+
+    for i, recomendador in enumerate(df_aux.index):
         fig.add_trace(
             go.Scatter(
-                x=df_aux.columns,
-                y=df_aux.loc[recomendador],
+                x=df_aux.columns,  # Colunas de métricas
+                y=df_aux.loc[recomendador],  # Pontuações do recomendador
                 mode='lines+markers',
-                marker=dict(symbol=marker_symbols[j % len(marker_symbols)], size=7, line=dict(color='black', width=0.5)),
-                name=recomendador,
-                legendgroup=recomendador,
-                showlegend= (i == 0), # Show legend only for the first subplot
-                line=dict(color=color_map[recomendador])
-            ),
-            row=row,
-            col=col
+                marker=dict(symbol=marker_symbols[i], size=7, line=dict(color='black', width=0.5)),
+                name=recomendador
+            )
         )
 
-fig.update_layout(
-    title_text=f"Metrics Comparison - {curr_metric}",
-    title_x=0.5,
-    height=400 * n_rows,
-    width=600 * n_cols,
+    fig.update_layout(
+    title=dataset_name+" - "+curr_metric,
+    title_x=0.15,
+    title_y=0.8,
+    showlegend=True,
+    height=400,
+    width=600,
+    yaxis_title="",
+    xaxis_title="",
     legend_title="Recommenders",
     font=dict(
         family="Helvetica",
         size=12,
         color="black"
-    ),
-    plot_bgcolor='white'
-)
+        )
+    )
 
-fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-
-figure_name = "subplot_" + curr_metric + ".html"
-fig.write_html(os.path.join("figures", figure_name)) 
-html_path = os.path.abspath(os.path.join("figures", figure_name))
-try:
-    browser = webbrowser.get('chrome')
-except webbrowser.Error:
+    figure_name = dataset_name + "_" + curr_metric + ".html"
+    fig.write_html(os.path.join("figures", figure_name)) 
+    html_path = os.path.abspath(os.path.join("figures", figure_name))
     try:
-        browser = webbrowser.get('google-chrome')
+        browser = webbrowser.get('chrome')
     except webbrowser.Error:
-        browser = None
-if browser:
-    browser.open(f'file://{html_path}')
+        try:
+            browser = webbrowser.get('google-chrome')
+        except webbrowser.Error:
+            browser = None
+    if browser:
+        browser.open(f'file://{html_path}')

@@ -14,7 +14,7 @@ from .Item2Vec_abc import Item2vec_abstract
 from .torchmodules.pytorch_dataset import create_item2vec_dataloader
 from .torchmodules.pytorch_trainer import Item2VecTrainer
 from .torchmodules.pytorch_model import Item2VecModel
-from scripts.recommenders.utils.monitor import monitor
+from scripts.modules.recommenders.utils.monitor import monitor
 
 class Item2vec_model(Item2vec_abstract):
 

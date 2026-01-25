@@ -23,7 +23,6 @@ Another way to install the libraries is with the `requirements.txt` (but not so 
 python -m pip install -r requirements.txt
 ```
 
-
 ### Datasets
 
 Downloading the datasets is necessary to run the experiments. A list with download link and where to save the files are given below:

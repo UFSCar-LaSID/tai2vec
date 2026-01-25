@@ -5,14 +5,19 @@ import scripts as kw
 import numpy as np
 
 from scripts.modules.preprocess.amazon_beauty import preprocess_amazon_beauty
+from scripts.modules.preprocess.ciaodvd import preprocess_ciaodvd
+from scripts.modules.preprocess.ml1m import preprocess_ml1m
+from scripts.modules.preprocess.bestbuy import preprocess_bestbuy
+from scripts.modules.preprocess.ml100k import preprocess_ml100k
+from scripts.modules.preprocess.amazon_books import preprocess_amazon_books
 
 DATASETS_TABLE = pd.DataFrame(
     [[1,  'amazon-beauty',             'E',         1.0,    preprocess_amazon_beauty],
-     [2,  'amazon-books',              'E',         1.0,    lambda _,__: None],
-     [3,  'bestbuy',                   'I',         1.0,    lambda _,__: None],
-     [4,  'ciaodvd',                   'I',         1.0,    lambda _,__: None],
-     [5,  'ml-100k',                   'E',         1.0,    lambda _,__: None],
-     [6,  'ml-1m',                     'E',         1.0,    lambda _,__: None],], 
+     [2,  'amazon-books',              'E',         1.0,    preprocess_amazon_books],
+     [3,  'bestbuy',                   'I',         1.0,    preprocess_bestbuy],
+     [4,  'ciaodvd',                   'I',         1.0,    preprocess_ciaodvd],
+     [5,  'ml-100k',                   'E',         1.0,    preprocess_ml100k],
+     [6,  'ml-1m',                     'E',         1.0,    preprocess_ml1m],], 
     columns=[kw.DATASET_ID, kw.DATASET_NAME, kw.DATASET_TYPE, kw.DATASET_SAMPLING_RATE, kw.DATASET_PREPROCESS_FUNCTION]
 ).set_index(kw.DATASET_ID)
 
@@ -64,3 +69,19 @@ def get_datasets(dataset_folder=kw.DATASET_PATH, datasets=None):
         if datasets is None or dataset_data[kw.DATASET_NAME] in datasets:
             dataset_filepath = os.path.join(dataset_folder, dataset_data[kw.DATASET_NAME], kw.FILE_INTERACTIONS)
             yield Dataset(dataset_id, dataset_filepath)
+
+def remove_single_interactions(df):
+    while True:
+        count_users = df[kw.COLUMN_USER_ID].value_counts(sort=False)
+        count_items = df[kw.COLUMN_ITEM_ID].value_counts(sort=False)
+        invalid_users = count_users[count_users==1].index
+        invalid_items = count_items[count_items==1].index
+        if len(invalid_users) == 0 and len(invalid_items) == 0:
+            break
+        df = df[(~df[kw.COLUMN_USER_ID].isin(invalid_users))&(~df[kw.COLUMN_ITEM_ID].isin(invalid_items))].copy()
+    return df
+
+def remove_cold_start(df_train, df_test):
+    valid_users = df_test[kw.COLUMN_USER_ID].isin(df_train[kw.COLUMN_USER_ID])
+    valid_items = df_test[kw.COLUMN_ITEM_ID].isin(df_train[kw.COLUMN_ITEM_ID])
+    return df_test[(valid_users)&(valid_items)].copy()

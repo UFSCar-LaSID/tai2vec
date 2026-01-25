@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 import os
 import scripts as kw
-from scripts.recommenders.Item2vec.Data_repr import DataRepr
+from scripts.modules.recommenders.Item2vec.Data_repr import DataRepr
 import pandas as pd
 import faiss
 import torch
