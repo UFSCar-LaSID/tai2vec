@@ -5,7 +5,6 @@ os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
 
 import numpy as np
 import pandas as pd
-pd.set_option('future.no_silent_downcasting', True)
 
 from sklearn.preprocessing import MinMaxScaler
 import torch
@@ -20,7 +19,7 @@ from .torchmodules.pytorch_model import Item2VecModel
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from scripts.dataset import get_datasets 
+from scripts.modules.dataset import get_datasets
     
 
 class Item2vec_Temp_Cont_model(Item2vec_abstract):
