@@ -65,7 +65,7 @@ class Item2vec_Temp_Cont_model(Item2vec_abstract):
         upper_clip = upper_clip.fillna(np.inf)
         
         # 4. Apply Clipping
-        df[kw.COLUMN_TIME_DIFF] = df[kw.COLUMN_TIME_DIFF].clip(upper=upper_clip).infer_objects(copy=False)
+        df[kw.COLUMN_TIME_DIFF] = df[kw.COLUMN_TIME_DIFF].clip(upper=upper_clip).infer_objects()
         
         # 5. Stats & Cumsum
         df[kw.COLUMN_MEAN] = df.groupby(kw.COLUMN_USER_ID)['valid_diffs'].transform('mean').fillna(0)
