@@ -78,7 +78,5 @@ class Item2VecTrainer:
             time_per_step = epoch_time / num_batches if num_batches > 0 else 0.0
             
             print(f"Epoch {epoch}/{self.parent.epochs} - Time: {epoch_time:.1f}s, Steps: {num_batches}, Time/step: {time_per_step:.3f}s, Loss: {avg_loss:.4f}")
-
-        torch.save(self.model.state_dict(), "best_model.pth")
         
         return self.model
