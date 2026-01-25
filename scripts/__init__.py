@@ -7,7 +7,7 @@ RAW_PATH = 'raw/'
 # Dados gerais do experimento
 RANDOM_STATE = 2002
 K_FOLD_SPLITS = 5
-TRAIN_MODE = 'cpu'
+TRAIN_MODE = 'gpu'
 
 # Nomes de arquivos da base de dados
 FILE_ITEMS = 'items.csv'
