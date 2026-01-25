@@ -136,3 +136,5 @@ Replace `<recommenders>` with the names (or indexes) of the recommenders separat
 - \[4\]: TimeI2V_Disc_Aug
 - \[5\]: TimeI2V_Cont
 - all (it will use all recommenders)
+
+The plots will be saved in the `figures` folder.
