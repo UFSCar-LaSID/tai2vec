@@ -3,6 +3,8 @@
 
 ## Installation
 
+Before executing the scripts, it is important to install the necessary datasets and Python libraries. The following two subsections explains how to do that.
+
 ### Python libraries
 
 The recommended way to install the python libaries necessary to run the experiments is using an Anaconda environment. You can create it with the command below:
@@ -36,6 +38,8 @@ Downloading the datasets is necessary to run the experiments. A list with downlo
 
 ## Executing the experiments
 
+With all the installation done, you can proceed to the scripts execution. The following subsections explains the necessary scripts to execute in order to reproduce our results.
+
 ### Preprocess datasets
 
 With the raw datasets downloaded, it's necessary to preprocess them before generating the recommendations.
@@ -64,5 +68,6 @@ Replace `<datasets>` with the names (or indexes) of the datasets separated by co
 - all (it will use all datasets)
 
 ### Run the recommendation methods
+
 
 ### Generate metrics and plots
