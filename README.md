@@ -17,6 +17,13 @@ With the envinroment created, you must activate it to be able to run the experim
 conda activate tai2vec
 ```
 
+Another way to install the libraries is with the `requirements.txt` (but not so recommended). The Python version 3.10.18 is recommended. You can then install the libraries with the command below:
+
+```
+python -m pip install -r requirements.txt
+```
+
+
 ### Datasets
 
 Downloading the datasets is necessary to run the experiments. A list with download link and where to save the files are given below:
