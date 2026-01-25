@@ -1,10 +1,7 @@
 
-import csv
 from datetime import datetime
-import numpy as np
 import os
 import pandas as pd
-import re
 from tqdm import tqdm
 import scripts as kw
 tqdm.pandas()
