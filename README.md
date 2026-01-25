@@ -69,5 +69,38 @@ Replace `<datasets>` with the names (or indexes) of the datasets separated by co
 
 ### Run the recommendation methods
 
+After preprocessing the datasets, you can proceed to the recommendation and evaluation script (main). You can execute it with:
+
+```
+python scripts/main.py
+```
+
+Executing this Python code will ask you which datasets and recommenders to use. Input the datasets and recommenders indexes separated by space to select them.
+
+Another way to select the datasets is by executing the command below:
+
+```
+python scripts/main.py --datasets <datasets> --recommenders <recommenders>
+```
+
+Replace `<datasets>` with the names (or indexes) of the datasets separated by comma (","). The available datasets to use are:
+
+- \[1\]: amazon-beauty
+- \[2\]: amazon-books
+- \[3\]: bestbuy
+- \[4\]: ciaodvd
+- \[5\]: ml-100k
+- \[6\]: ml-1m
+- all (it will use all datasets)
+
+Replace `<recommenders>` with the names (or indexes) of the recommenders separated by comma (","). The available recommenders to use are:
+
+- \[1\]: ALS
+- \[2\]: BPR
+- \[3\]: Item2Vec
+- \[4\]: TimeI2V_Disc_Aug
+- \[5\]: TimeI2V_Cont
+- all (it will use all recommenders)
 
 ### Generate metrics and plots
+
