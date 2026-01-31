@@ -1,5 +1,7 @@
 
-# Time embeddings
+# TAI2Vec
+
+Official repository for the paper "_Learning Behaviorally Grounded Item Embeddings via Personalized Temporal Contexts_"
 
 ## Installation
 
