@@ -19,6 +19,24 @@ Effective user modeling requires distinguishing between short-term and long-term
 
 Visual comparison between Item2Vec and the two TAI2Vec variants. A user interaction sequence is illustrated as a sequence of consumed items annotated with their temporal intervals. Item2Vec assumes a static co-occurrence context, assigning equal importance to all items within the same user history. TAI2Vec-Disc introduces discrete temporal segmentation, creating sub-contexts that prioritize interactions within specific time windows. TAI2Vec-Cont shapes temporal proximity continuously, assigning interaction weights dynamically based on the temporal distance between items.
 
+## Results
+
+### Comparison of recommenders for NDCG@10
+
+![ndcg-table](/images/ndcg_table.png)
+
+### Comparison of recommenders for Hit Rate@10
+
+![hr-table](/images/hr_table.png)
+
+### Percentage improvement of TAI2Vec recommenders for NDCG@10 in comparison with Item2Vec
+
+![ndcg-comparison](/images/improve_table.png)
+
+### Average NDCG@N results for multiple values of N across different datasets
+
+![ndcg-comparison](/images/ndcg_plots.png)
+
 ## Installation
 
 Before executing the scripts, it is important to install the necessary datasets and Python libraries. The following two subsections explain how to do that.
