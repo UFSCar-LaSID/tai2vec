@@ -13,6 +13,12 @@ Effective user modeling requires distinguishing between short-term and long-term
 * **Adaptive Modeling Strategies:** We introduce two time-aware mechanisms - discrete segmentation via anomaly detection and continuous weighting via statistical normalization - to implement temporal proximity in embedding training;
 * **Empirical Validation:** We demonstrate through extensive experiments on six diverse datasets that TAI2Vec consistently produces more accurate and behaviorally grounded representations than static baselines, achieving competitive or superior performance in over 80\% of the datasets, with improvements of up to 135\% in sparse interaction scenarios.
 
+## Visual representation
+
+![algorithm-diagram](/images/Item2Vec_Diagram.png)
+
+Visual comparison between Item2Vec and the two TAI2Vec variants. A user interaction sequence is illustrated as a sequence of consumed items annotated with their temporal intervals. Item2Vec assumes a static co-occurrence context, assigning equal importance to all items within the same user history. TAI2Vec-Disc introduces discrete temporal segmentation, creating sub-contexts that prioritize interactions within specific time windows. TAI2Vec-Cont shapes temporal proximity continuously, assigning interaction weights dynamically based on the temporal distance between items.
+
 ## Installation
 
 Before executing the scripts, it is important to install the necessary datasets and Python libraries. The following two subsections explain how to do that.
