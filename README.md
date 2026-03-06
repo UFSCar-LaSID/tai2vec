@@ -15,7 +15,7 @@ Effective user modeling requires distinguishing between short-term and long-term
 
 ## Visual representation
 
-![algorithm-diagram](/images/Item2Vec_Diagram.png)
+![algorithm-diagram](./images/Item2Vec_Diagram.png)
 
 Visual comparison between Item2Vec and the two TAI2Vec variants. A user interaction sequence is illustrated as a sequence of consumed items annotated with their temporal intervals. Item2Vec assumes a static co-occurrence context, assigning equal importance to all items within the same user history. TAI2Vec-Disc introduces discrete temporal segmentation, creating sub-contexts that prioritize interactions within specific time windows. TAI2Vec-Cont shapes temporal proximity continuously, assigning interaction weights dynamically based on the temporal distance between items.
 
