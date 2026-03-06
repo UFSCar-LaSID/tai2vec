@@ -15,7 +15,7 @@ Effective user modeling requires distinguishing between short-term and long-term
 
 ## Visual representation
 
-![algorithm-diagram](/images/Item2Vec_Diagram.png)
+![algorithm-diagram](./images/Item2Vec_Diagram.png)
 
 Visual comparison between Item2Vec and the two TAI2Vec variants. A user interaction sequence is illustrated as a sequence of consumed items annotated with their temporal intervals. Item2Vec assumes a static co-occurrence context, assigning equal importance to all items within the same user history. TAI2Vec-Disc introduces discrete temporal segmentation, creating sub-contexts that prioritize interactions within specific time windows. TAI2Vec-Cont shapes temporal proximity continuously, assigning interaction weights dynamically based on the temporal distance between items.
 
@@ -23,37 +23,37 @@ Visual comparison between Item2Vec and the two TAI2Vec variants. A user interact
 
 ### Comparison of recommenders for NDCG@10
 
-![ndcg-table](/images/80_10_10/ndcg_table.png)
+![ndcg-table](./images/80_10_10/ndcg_table.png)
 
 ### Comparison of recommenders for Hit Rate@10
 
-![hr-table](/images/80_10_10/hr_table.png)
+![hr-table](./images/80_10_10/hr_table.png)
 
 ### Percentage improvement of TAI2Vec recommenders for NDCG@10 in comparison with Item2Vec
 
-![ndcg-comparison](/images/80_10_10/improve_table.png)
+![ndcg-comparison](./images/80_10_10/improve_table.png)
 
 ### Average NDCG@N results for multiple values of N across different datasets
 
-![ndcg-comparison](/images/80_10_10/ndcg_plots.png)
+![ndcg-comparison](./images/80_10_10/ndcg_plots.png)
 
 ## Results 70:15:15 split
 
 ### Comparison of recommenders for NDCG@10
 
-![ndcg-table](/images/70_15_15/ndcg_table.png)
+![ndcg-table](./images/70_15_15/ndcg_table.png)
 
 ### Comparison of recommenders for Hit Rate@10
 
-![hr-table](/images/70_15_15/hr_table.png)
+![hr-table](./images/70_15_15/hr_table.png)
 
 ### Percentage improvement of TAI2Vec recommenders for NDCG@10 in comparison with Item2Vec
 
-![ndcg-comparison](/images/70_15_15/improve_table.png)
+![ndcg-comparison](./images/70_15_15/improve_table.png)
 
 ### Average NDCG@N results for multiple values of N across different datasets
 
-![ndcg-comparison](/images/70_15_15/ndcg_plots.png)
+![ndcg-comparison](./images/70_15_15/ndcg_plots.png)
 
 ## Installation
 
