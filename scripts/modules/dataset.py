@@ -34,6 +34,8 @@ class Dataset(object):
             min_max = self.df[explicit_ratings][kw.COLUMN_RATING].agg(['min', 'max'])
             mean_rating = (min_max.loc['min'] + min_max.loc['max']) / 2  
             self.df = self.df[(self.df[kw.COLUMN_RATING]>=mean_rating)|(self.df[kw.COLUMN_RATING]==-1)]
+            self.min_rating = min_max.loc['min']
+            self.max_rating = min_max.loc['max']
 
         if self.sampling_rate < 1.0:
             self.df = self.sample_dataset(self.df)

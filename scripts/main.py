@@ -30,7 +30,7 @@ np.random.seed(kw.RANDOM_STATE)
 
 print("Using PyTorch version:", torch.__version__, "with CUDA support:", torch.cuda.is_available())
 
-dataset_options, recommender_options = get_input('Choose datasets to preprocess', [
+dataset_options, recommender_options = get_input('Choose algorithmns and recommenders options to test', [
     {
         'name': 'datasets',
         'description': 'Dataset names (or indexes) to use. If not provided, a interactive menu will be shown. If "all" is provided, all datasets will be preprocessed.',
