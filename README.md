@@ -53,7 +53,11 @@ Visual comparison between Item2Vec and the two TAI2Vec variants. A user interact
 
 ### Average NDCG@N results for multiple values of N across different datasets
 
-![ndcg-comparison](./images/70_15_15/ndcg_plots.png)
+![ndcg-comparison](./images/70_15_15/ndcg_plots.jpeg)
+
+### RMSE in rating prediction task
+
+![rmse-table](./images/70_15_15/rmse_table.png)
 
 ## Installation
 
