@@ -12,9 +12,10 @@ from scripts.modules.recommenders.Item2vec.Item2vec_cont import Item2vec_Temp_Co
 RECOMMENDERS_TABLE = pd.DataFrame(
     [[1,  'ALS',                  "ALS",                  ALS,                        ALS,          ALS_HYPERPARAMETERS,               {}],
      [2,  'BPR',                  "BPR",                  BPR,                        BPR,          BPR_HYPERPARAMETERS,               {}],
-     [3,  'Item2Vec',             "Item2Vec",             Item2vec_model,             ItemSim,      ITEM2VEC_HYPERPARAMETERS,          ITEMSIM_RECOMMENDER_HYPERPARAMETERS],
+     [3,  'Item2Vec_itemSim',     "Item2Vec_itemSim",     Item2vec_model,             ItemSim,      ITEM2VEC_HYPERPARAMETERS,          ITEMSIM_RECOMMENDER_HYPERPARAMETERS],
      [4,  'TimeI2V_Disc_Aug',     "TimeI2V_Disc_Aug",     Item2vec_temp_aug_model,    ItemSim,      ITEM2VEC_TEMP_HYPERPARAMETERS,     ITEMSIM_RECOMMENDER_HYPERPARAMETERS],
-     [5,  'TimeI2V_Cont',         "TimeI2V_Cont",         Item2vec_Temp_Cont_model,   ItemSim,      ITEM2VEC_CONT_HYPERPARAMETERS,     ITEMSIM_RECOMMENDER_HYPERPARAMETERS]], 
+     [5,  'TimeI2V_Cont',         "TimeI2V_Cont",         Item2vec_Temp_Cont_model,   ItemSim,      ITEM2VEC_CONT_HYPERPARAMETERS,     ITEMSIM_RECOMMENDER_HYPERPARAMETERS],
+     [6,  'Seq2Vec',              "Seq2Vec",              Item2vec_Temp_Cont_model,   ItemSim,      ITEM2VEC_CONT_HYPERPARAMETERS,     ITEMSIM_RECOMMENDER_HYPERPARAMETERS]],
     columns=[kw.RECOMMENDER_ID, kw.RECOMMENDER_NAME, kw.EMBEDDING_NAME, kw.RECOMMENDER_EMBEDDINGS, kw.RECOMMENDER_CLASS, kw.EMBEDDINGS_HYPERPARAMETERS, kw.RECOMMENDER_HYPERPARAMETERS]
 ).set_index(kw.RECOMMENDER_ID)
 

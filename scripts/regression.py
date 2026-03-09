@@ -12,13 +12,10 @@ import pandas as pd
 import scripts as kw
 import numpy as np
 from scripts.modules.dataset import get_datasets 
-
-from scripts.modules.utils.file_handlers import get_embeddings_filepath, get_recomendation_filepath, get_metrics_filepath, log_recommendations, get_all_embeddings_filepath, str_to_dict
-from scripts.modules.recommenders import get_recommenders
-from scripts.modules.metrics import Metrics
 from scripts.modules.utils.parameters_handle import get_input
 from scripts.modules.dataset import DATASETS_TABLE, remove_single_interactions, remove_cold_start
 from scripts.modules.recommenders import RECOMMENDERS_TABLE
+from scripts.modules.recommenders.Item2vec.Data_repr import DataRepr
 
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
@@ -43,15 +40,18 @@ def combine_embeddings(target_embeddings, context_embeddings, combination_strate
 
 class ItemSim:
 
-    def __init__(self, algo_name, embeddings_filepath, use_norm=True, combination_strategy='avg_norm_after'):
+    def __init__(self, df_train, min_rating, max_rating, use_norm=True, combination_strategy='avg_norm_after'):
         
-        self.embedding_dir = embeddings_filepath
         self.use_norm = use_norm
         self.combination_strategy = combination_strategy
 
-        with open(os.path.join(embeddings_filepath, kw.FILE_SPARSE_REPR), 'rb') as f:
-            self.data_repr = pickle.load(f)
-        
+        self.data_repr = DataRepr(df_train)
+        self.user_histories = df_train.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_ITEM_ID].apply(lambda row: self.data_repr.le_items.transform(row.tolist())).to_dict()
+
+        self.min_rating = min_rating
+        self.max_rating = max_rating
+
+    def fit(self, algo_name, embeddings_filepath):
         if algo_name == 'ALS' or algo_name == 'BPR':
             self.item_embeddings = np.load(os.path.join(embeddings_filepath, kw.FILE_ITEMS_EMBEDDINGS))
         else:
@@ -64,13 +64,7 @@ class ItemSim:
                 combination_strategy=self.combination_strategy,
                 use_norm=self.use_norm
             )
-
-    def fit(self, df_train, min_rating, max_rating):
-        # Group by user, get the items index history, and store in a dict
-        self.user_histories = df_train.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_ITEM_ID].apply(lambda row: self.data_repr.le_items.transform(row.tolist())).to_dict()
-
-        self.min_rating = min_rating
-        self.max_rating = max_rating
+            print(self.item_embeddings.shape)
 
     def predict(self, df_test):
         scores = []
@@ -120,7 +114,7 @@ for dataset in get_datasets(datasets=dataset_names):
     print('Loading dataset {}...'.format(dataset_name))
     
     df = dataset.get_dataframe()
-    df = remove_single_interactions(df)
+    #df = remove_single_interactions(df)
 
     if kw.COLUMN_TIMESTAMP in df.columns:
         df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
@@ -132,22 +126,24 @@ for dataset in get_datasets(datasets=dataset_names):
     #Ordena o dataframe pela coluna de tempo
     df = df.sort_values(by=kw.COLUMN_DATETIME)
 
-    df_train, df_test = train_test_split(df, test_size=0.1, shuffle=False)
+    df_train, df_test = train_test_split(df, test_size=0.15)
+    df_train = remove_single_interactions(df_train)
     df_test = remove_cold_start(df_train, df_test)
+
+    print(df_train[kw.COLUMN_ITEM_ID].nunique())
+
+    model = ItemSim(df_train, dataset.min_rating, dataset.max_rating)
 
     for recommender_name in recommender_names:
 
         pbar.set_description(f'{dataset_name} | {recommender_name}')
         embeddings_file_path = os.path.join('results', 'embeddings', kw.TEST, dataset_name, recommender_name, os.listdir(os.path.join('results', 'embeddings', kw.TEST, dataset_name, recommender_name))[0])
         reg_file_path = os.path.join('results', 'recommendations', kw.TEST, dataset_name, recommender_name, 'regression_results.csv')
+        os.makedirs(os.path.dirname(reg_file_path), exist_ok=True)
         reg_metrics_path = os.path.join('results', 'metrics', kw.TEST, dataset_name, recommender_name, 'regression_metrics.csv')
+        os.makedirs(os.path.dirname(reg_metrics_path), exist_ok=True)
 
-        recomendation_filepath = get_recomendation_filepath(kw.TEST, dataset_name, recommender_name)
-        metrics_filepath = get_metrics_filepath(kw.TEST, dataset_name, recommender_name)
-
-        model = ItemSim(recommender_name, get_all_embeddings_filepath(dataset_name, recommender_name))
-
-        model.fit(df_train, dataset.min_rating, dataset.max_rating)
+        model.fit(recommender_name, embeddings_file_path)
         pred_df = model.predict(df_test)
 
         rmse = np.sqrt(mean_squared_error(pred_df[kw.COLUMN_RATING], pred_df['predicted_rating']))

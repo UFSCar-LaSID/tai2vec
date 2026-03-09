@@ -14,10 +14,12 @@ from scripts.modules.preprocess.amazon_books import preprocess_amazon_books
 DATASETS_TABLE = pd.DataFrame(
     [[1,  'amazon-beauty',             'E',         1.0,    preprocess_amazon_beauty],
      [2,  'amazon-books',              'E',         1.0,    preprocess_amazon_books],
-     [3,  'bestbuy',                   'I',         1.0,    preprocess_bestbuy],
-     [4,  'ciaodvd',                   'I',         1.0,    preprocess_ciaodvd],
-     [5,  'ml-100k',                   'E',         1.0,    preprocess_ml100k],
-     [6,  'ml-1m',                     'E',         1.0,    preprocess_ml1m],], 
+     [3,  'amazon-games',              'E',         1.0,    None],
+     [4,  'bestbuy',                   'I',         1.0,    preprocess_bestbuy],
+     [5,  'ciaodvd',                   'I',         1.0,    preprocess_ciaodvd],
+     [6,  'ml-100k',                   'E',         1.0,    preprocess_ml100k],
+     [7,  'ml-1m',                     'E',         1.0,    preprocess_ml1m],
+     [8,  'retailrocket-transactions', 'I',         0.1,    None]],
     columns=[kw.DATASET_ID, kw.DATASET_NAME, kw.DATASET_TYPE, kw.DATASET_SAMPLING_RATE, kw.DATASET_PREPROCESS_FUNCTION]
 ).set_index(kw.DATASET_ID)
 
@@ -36,6 +38,10 @@ class Dataset(object):
             self.df = self.df[(self.df[kw.COLUMN_RATING]>=mean_rating)|(self.df[kw.COLUMN_RATING]==-1)]
             self.min_rating = min_max.loc['min']
             self.max_rating = min_max.loc['max']
+        else:
+            self.min_rating = 0
+            self.max_rating = 1
+            self.df[kw.COLUMN_RATING] = 1
 
         if self.sampling_rate < 1.0:
             self.df = self.sample_dataset(self.df)
