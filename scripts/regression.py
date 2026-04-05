@@ -1,4 +1,3 @@
-
 import sys
 import os
 
@@ -85,9 +84,6 @@ class ItemSim:
         })
         return final_df
 
-
-
-
 dataset_options, recommender_options = get_input('Choose algorithmns and recommenders options to test', [
     {
         'name': 'datasets',
@@ -114,7 +110,6 @@ for dataset in get_datasets(datasets=dataset_names):
     print('Loading dataset {}...'.format(dataset_name))
     
     df = dataset.get_dataframe()
-    #df = remove_single_interactions(df)
 
     if kw.COLUMN_TIMESTAMP in df.columns:
         df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
@@ -123,27 +118,37 @@ for dataset in get_datasets(datasets=dataset_names):
     else:
         raise ValueError('Coluna temporal não encontrada')
         
-    #Ordena o dataframe pela coluna de tempo
+    # Ordena o dataframe pela coluna de tempo
     df = df.sort_values(by=kw.COLUMN_DATETIME)
 
-    df_train, df_test = train_test_split(df, test_size=0.15)
-    df_train = remove_single_interactions(df_train)
+    df = remove_single_interactions(df)
+
+    df_train, df_remaining = train_test_split(df, test_size=0.3, shuffle=False)
+    _df_val_aux, df_test = train_test_split(df_remaining, test_size=0.5, shuffle=False)
+
     df_test = remove_cold_start(df_train, df_test)
 
-    print(df_train[kw.COLUMN_ITEM_ID].nunique())
-
-    model = ItemSim(df_train, dataset.min_rating, dataset.max_rating)
+    user_counts = df_train[kw.COLUMN_USER_ID].value_counts()
+    users_with_one_interaction = user_counts[user_counts == 1].shape[0]
+    item_counts = df_train[kw.COLUMN_ITEM_ID].value_counts()
+    items_that_appear_once = item_counts[item_counts == 1].shape[0]
 
     for recommender_name in recommender_names:
 
         pbar.set_description(f'{dataset_name} | {recommender_name}')
-        embeddings_file_path = os.path.join('results', 'embeddings', kw.TEST, dataset_name, recommender_name, os.listdir(os.path.join('results', 'embeddings', kw.TEST, dataset_name, recommender_name))[0])
+        
+        base_path = os.path.join('results', 'embeddings', kw.TEST, dataset_name, recommender_name)
+        run_folder = os.listdir(base_path)[0]
+        run_path = os.path.join(base_path, run_folder)
+
+        model = ItemSim(df_train, dataset.min_rating, dataset.max_rating)
+
         reg_file_path = os.path.join('results', 'recommendations', kw.TEST, dataset_name, recommender_name, 'regression_results.csv')
         os.makedirs(os.path.dirname(reg_file_path), exist_ok=True)
         reg_metrics_path = os.path.join('results', 'metrics', kw.TEST, dataset_name, recommender_name, 'regression_metrics.csv')
         os.makedirs(os.path.dirname(reg_metrics_path), exist_ok=True)
 
-        model.fit(recommender_name, embeddings_file_path)
+        model.fit(recommender_name, run_path)
         pred_df = model.predict(df_test)
 
         rmse = np.sqrt(mean_squared_error(pred_df[kw.COLUMN_RATING], pred_df['predicted_rating']))
@@ -160,4 +165,3 @@ for dataset in get_datasets(datasets=dataset_names):
         metrics_df.to_csv(reg_metrics_path, index=False)
 
         pbar.update(1)
-        

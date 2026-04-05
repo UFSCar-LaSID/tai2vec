@@ -2,10 +2,10 @@ import pandas as pd
 
 import scripts as kw
 from scripts.modules.recommenders.Mf_models.mf import ALS, BPR
-from scripts.modules.recommenders.hyperparameters import ALS_HYPERPARAMETERS, BPR_HYPERPARAMETERS, ITEMSIM_RECOMMENDER_HYPERPARAMETERS, ITEM2VEC_HYPERPARAMETERS, ITEM2VEC_TEMP_HYPERPARAMETERS, ITEM2VEC_CONT_HYPERPARAMETERS
+from scripts.modules.recommenders.hyperparameters import ALS_HYPERPARAMETERS, BPR_HYPERPARAMETERS, ITEMSIM_RECOMMENDER_HYPERPARAMETERS, ITEM2VEC_HYPERPARAMETERS, ITEM2VEC_TEMP_HYPERPARAMETERS, ITEM2VEC_CONT_HYPERPARAMETERS, SEQ2VEC_HYPERPARAMETERS
 from scripts.modules.recommenders.itemSim import ItemSim
 from scripts.modules.recommenders.Item2vec.Item2vec_base import Item2vec_model
-from scripts.modules.recommenders.Item2vec.Item2vec_disc import Item2vec_temp_model
+from scripts.modules.recommenders.Item2vec.Item2vec_disc import Seq2Vec
 from scripts.modules.recommenders.Item2vec.Item2Vec_disc_aug import Item2vec_temp_aug_model
 from scripts.modules.recommenders.Item2vec.Item2vec_cont import Item2vec_Temp_Cont_model
 
@@ -15,7 +15,7 @@ RECOMMENDERS_TABLE = pd.DataFrame(
      [3,  'Item2Vec_itemSim',     "Item2Vec_itemSim",     Item2vec_model,             ItemSim,      ITEM2VEC_HYPERPARAMETERS,          ITEMSIM_RECOMMENDER_HYPERPARAMETERS],
      [4,  'TimeI2V_Disc_Aug',     "TimeI2V_Disc_Aug",     Item2vec_temp_aug_model,    ItemSim,      ITEM2VEC_TEMP_HYPERPARAMETERS,     ITEMSIM_RECOMMENDER_HYPERPARAMETERS],
      [5,  'TimeI2V_Cont',         "TimeI2V_Cont",         Item2vec_Temp_Cont_model,   ItemSim,      ITEM2VEC_CONT_HYPERPARAMETERS,     ITEMSIM_RECOMMENDER_HYPERPARAMETERS],
-     [6,  'Seq2Vec',              "Seq2Vec",              Item2vec_Temp_Cont_model,   ItemSim,      ITEM2VEC_CONT_HYPERPARAMETERS,     ITEMSIM_RECOMMENDER_HYPERPARAMETERS]],
+     [6,  'Seq2Vec',              "Seq2Vec",              Seq2Vec,                    ItemSim,      SEQ2VEC_HYPERPARAMETERS,           ITEMSIM_RECOMMENDER_HYPERPARAMETERS]],
     columns=[kw.RECOMMENDER_ID, kw.RECOMMENDER_NAME, kw.EMBEDDING_NAME, kw.RECOMMENDER_EMBEDDINGS, kw.RECOMMENDER_CLASS, kw.EMBEDDINGS_HYPERPARAMETERS, kw.RECOMMENDER_HYPERPARAMETERS]
 ).set_index(kw.RECOMMENDER_ID)
 

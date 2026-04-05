@@ -1,6 +1,6 @@
 import csv
 
-DATASET_PATH = '/storage/recsys/1-datasets'
+DATASET_PATH = 'datasets'
 RAW_PATH = 'raw/'
 
 # Dados gerais do experimento

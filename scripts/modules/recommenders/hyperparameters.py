@@ -2,15 +2,15 @@ import scripts as kw
 
 ALS_HYPERPARAMETERS = {
     'factors': [50, 100, 200],
-    'regularization': [1e-2, 1e-4, 1e-6],
-    'iterations': [10, 20, 50, 100]
+    'regularization': [1e-2, 1e-4],
+    'iterations': [20, 50, 100]
 }
 
 BPR_HYPERPARAMETERS = {
     'factors': [50, 100, 200],
-    'learning_rate': [0.0025, 0.025, 0.25],
-    'regularization': [1e-2, 1e-4, 1e-6],
-    'iterations': [10, 20, 50, 100]
+    'learning_rate': [0.0025, 0.025],
+    'regularization': [1e-2, 1e-4],
+    'iterations': [20, 50, 100]
 }
 
 ITEMSIM_RECOMMENDER_HYPERPARAMETERS = {
@@ -28,6 +28,17 @@ ITEM2VEC_HYPERPARAMETERS = {
     'epochs': [20, 50, 100],
 }
 
+SEQ2VEC_HYPERPARAMETERS = {
+    'w_size': [10],
+    'learning_rate': [0.25, 0.025],
+    'subsample': [1e-3, 1e-4],
+    'negative_samples': [7],
+    'negative_exp': [-1, -0.5, 0.5, 1],
+    'regularization': [1e-6],
+    'epochs': [20, 50, 100],
+    'time_threshold': [182, 365],
+}
+
 ITEM2VEC_TEMP_HYPERPARAMETERS = {
     'w_size': [10],
     'learning_rate': [0.25, 0.025],
@@ -36,7 +47,7 @@ ITEM2VEC_TEMP_HYPERPARAMETERS = {
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [1e-6],
     'epochs': [20, 50, 100],
-    'time_exp': [1, 1.5, 2],
+    'time_exp': [1, 2],
     'min_time_diff': [300],
 }
 
@@ -48,7 +59,7 @@ ITEM2VEC_CONT_HYPERPARAMETERS = {
     'negative_exp': [-1, -0.5, 0.5, 1],
     'regularization': [1e-6],
     'epochs': [20, 50, 100],
-    'weight_floor': [0.3, 0.5],
+    'weight_floor': [0.3],
     'decay_rate': [3, 5],
     'min_time_diff': [300],
 }
