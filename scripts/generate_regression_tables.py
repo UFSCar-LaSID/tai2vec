@@ -12,14 +12,20 @@ main_file = os.listdir(main_path)
 
 dataframes = []
 
+skip_recommenders = {'ALS', 'ALS_itemSim', 'BPR'}
+
 for dataset_name in main_file:
     recommender_files = os.listdir(os.path.join(main_path, dataset_name))
     for recommender_name in recommender_files:
+        if recommender_name in skip_recommenders:
+            continue
+
         metrics_path = os.path.join(main_path, dataset_name, recommender_name, "regression_metrics.csv")
+        if not os.path.exists(metrics_path):
+            continue
+
         metrics_aux = pd.read_csv(metrics_path)
-
         metrics_aux.columns = ['Dataset', 'Recommender', 'rmse', 'mae']
-
         dataframes.append(metrics_aux)
 
 metrics_df = pd.concat(dataframes, ignore_index=True)
@@ -152,8 +158,8 @@ comp_dataset_order = [
     'bestbuy', 
     'ciaodvd',
     'ml-100k', 
-    'ml-1m', 
-    #'retailrocket-transactions',
+    #'ml-1m', 
+    'retailrocket-transactions',
 ]
 
 all_gain_dfs = {}

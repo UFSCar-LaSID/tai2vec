@@ -20,6 +20,7 @@ import torch
 from sklearn.metrics.pairwise import cosine_similarity
 import pickle
 from sklearn.metrics import mean_squared_error, mean_absolute_error
+import time
 
 def combine_embeddings(target_embeddings, context_embeddings, combination_strategy='avg_norm_after', use_norm=True):
 
@@ -45,7 +46,20 @@ class ItemSim:
         self.combination_strategy = combination_strategy
 
         self.data_repr = DataRepr(df_train)
-        self.user_histories = df_train.groupby(kw.COLUMN_USER_ID)[kw.COLUMN_ITEM_ID].apply(lambda row: self.data_repr.le_items.transform(row.tolist())).to_dict()
+
+        t0_hist = time.time()
+        encoded_items = self.data_repr.le_items.transform(df_train[kw.COLUMN_ITEM_ID].to_numpy())
+        tmp = pd.DataFrame({
+            kw.COLUMN_USER_ID: df_train[kw.COLUMN_USER_ID].to_numpy(),
+            '_item_idx': encoded_items
+        })
+
+        grouped = tmp.groupby(kw.COLUMN_USER_ID)['_item_idx']
+        self.user_histories = {
+            user_id: grp.to_numpy(dtype=np.int64, copy=False)
+            for user_id, grp in grouped
+        }
+        print(f"Built {len(self.user_histories):,} user histories in {time.time() - t0_hist:.2f}s")
 
         self.min_rating = min_rating
         self.max_rating = max_rating
@@ -63,19 +77,26 @@ class ItemSim:
                 combination_strategy=self.combination_strategy,
                 use_norm=self.use_norm
             )
-            print(self.item_embeddings.shape)
+            print(f"Loaded embeddings: {self.item_embeddings.shape} from {embeddings_filepath}")
 
-    def predict(self, df_test):
+    def predict(self, df_test, show_progress=True):
         scores = []
-        for user_id, item_id in zip(df_test[kw.COLUMN_USER_ID], df_test[kw.COLUMN_ITEM_ID]):
-            target_item_embedding = self.item_embeddings[self.data_repr.get_item_index(item_id)]
+
+        test_users = df_test[kw.COLUMN_USER_ID].to_numpy()
+        test_item_idx = self.data_repr.le_items.transform(df_test[kw.COLUMN_ITEM_ID].to_numpy())
+
+        for i in range(len(df_test)):
+
+            user_id = test_users[i]
+            item_idx = test_item_idx[i]
+
+            target_item_embedding = self.item_embeddings[item_idx]
             user_history_embeddings = self.item_embeddings[self.user_histories[user_id]]
             similarity = cosine_similarity([target_item_embedding], user_history_embeddings).mean()
 
             score = (similarity + 1) / (2) * (self.max_rating - self.min_rating) + self.min_rating
-            
             scores.append(score)
-        
+
         final_df = pd.DataFrame({
             kw.COLUMN_USER_ID: df_test[kw.COLUMN_USER_ID],
             kw.COLUMN_ITEM_ID: df_test[kw.COLUMN_ITEM_ID],
@@ -104,17 +125,20 @@ recommender_names = [RECOMMENDERS_TABLE.loc[option_index, kw.RECOMMENDER_NAME] f
 
 pbar = tqdm(total=len(dataset_names) * len(recommender_names), desc='Processing datasets and recommenders')
 
+t0_all = time.time()
 for dataset in get_datasets(datasets=dataset_names):
 
     dataset_name = dataset.get_name()
+    t0_dataset = time.time()
+    print(f"\n=== Dataset: {dataset_name} ===")
     print('Loading dataset {}...'.format(dataset_name))
     
     df = dataset.get_dataframe()
 
-    if kw.COLUMN_TIMESTAMP in df.columns:
-        df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
-    elif kw.COLUMN_DATETIME in df.columns:
+    if kw.COLUMN_DATETIME in df.columns:
         df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_DATETIME]).dt.floor('s')
+    elif kw.COLUMN_TIMESTAMP in df.columns:
+        df[kw.COLUMN_DATETIME] = pd.to_datetime(df[kw.COLUMN_TIMESTAMP], unit='s')
     else:
         raise ValueError('Coluna temporal não encontrada')
         
@@ -123,7 +147,7 @@ for dataset in get_datasets(datasets=dataset_names):
 
     df = remove_single_interactions(df)
 
-    df_train, df_remaining = train_test_split(df, test_size=0.3, shuffle=False)
+    df_train, df_remaining = train_test_split(df, test_size=0.2, shuffle=False)
     _df_val_aux, df_test = train_test_split(df_remaining, test_size=0.5, shuffle=False)
 
     df_test = remove_cold_start(df_train, df_test)
@@ -133,23 +157,47 @@ for dataset in get_datasets(datasets=dataset_names):
     item_counts = df_train[kw.COLUMN_ITEM_ID].value_counts()
     items_that_appear_once = item_counts[item_counts == 1].shape[0]
 
+    print(
+        f"Rows: total={len(df):,} | train={len(df_train):,} | test={len(df_test):,} | "
+        f"train users w/1 interaction={users_with_one_interaction:,} | items appearing once={items_that_appear_once:,}"
+    )
+
     for recommender_name in recommender_names:
 
         pbar.set_description(f'{dataset_name} | {recommender_name}')
+        t0_run = time.time()
+        print(f"\n[{dataset_name} | {recommender_name}] Starting...")
         
         base_path = os.path.join('results', 'embeddings', kw.TEST, dataset_name, recommender_name)
-        run_folder = os.listdir(base_path)[0]
+        if not os.path.isdir(base_path):
+            print(f"[{dataset_name} | {recommender_name}] SKIP: embeddings folder not found: {base_path}")
+            pbar.update(1)
+            continue
+
+        run_folders = sorted([d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d))])
+        if not run_folders:
+            print(f"[{dataset_name} | {recommender_name}] SKIP: no run folder inside: {base_path}")
+            pbar.update(1)
+            continue
+
+        run_folder = run_folders[0]
         run_path = os.path.join(base_path, run_folder)
+        print(f"[{dataset_name} | {recommender_name}] Using run: {run_folder}")
 
         model = ItemSim(df_train, dataset.min_rating, dataset.max_rating)
+
+        print("Model initialized. Preparing output paths...")
 
         reg_file_path = os.path.join('results', 'recommendations', kw.TEST, dataset_name, recommender_name, 'regression_results.csv')
         os.makedirs(os.path.dirname(reg_file_path), exist_ok=True)
         reg_metrics_path = os.path.join('results', 'metrics', kw.TEST, dataset_name, recommender_name, 'regression_metrics.csv')
         os.makedirs(os.path.dirname(reg_metrics_path), exist_ok=True)
 
+        print(f"[{dataset_name} | {recommender_name}] Loading embeddings + fitting...")
         model.fit(recommender_name, run_path)
-        pred_df = model.predict(df_test)
+
+        print(f"[{dataset_name} | {recommender_name}] Predicting on {len(df_test):,} interactions...")
+        pred_df = model.predict(df_test, show_progress=True)
 
         rmse = np.sqrt(mean_squared_error(pred_df[kw.COLUMN_RATING], pred_df['predicted_rating']))
         mae = mean_absolute_error(pred_df[kw.COLUMN_RATING], pred_df['predicted_rating'])
@@ -164,4 +212,14 @@ for dataset in get_datasets(datasets=dataset_names):
         })
         metrics_df.to_csv(reg_metrics_path, index=False)
 
+        print(
+            f"[{dataset_name} | {recommender_name}] Done. RMSE={rmse:.6f} MAE={mae:.6f} "
+            f"(took {time.time() - t0_run:.1f}s)"
+        )
+
         pbar.update(1)
+
+    print(f"=== Dataset {dataset_name} finished in {time.time() - t0_dataset:.1f}s ===")
+
+pbar.close()
+print(f"\nAll done in {time.time() - t0_all:.1f}s")

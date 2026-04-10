@@ -94,7 +94,7 @@ for dataset in get_datasets(datasets=dataset_names):
     df = df.sort_values(by=kw.COLUMN_DATETIME)
 
     #Divide o dataset em treino, validação e teste
-    df_train, df_remaining = train_test_split(df, test_size=0.3, shuffle=False)
+    df_train, df_remaining = train_test_split(df, test_size=0.2, shuffle=False)
     df_val_aux, df_test = train_test_split(df_remaining, test_size=0.5, shuffle=False)
     df_val = remove_cold_start(df_train, df_val_aux)
 
