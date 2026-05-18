@@ -28,11 +28,12 @@ from scripts.modules.utils.parameters_handle import get_input
 warnings.filterwarnings('once')
 
 best_column = kw.EVALUATION_PARAMETER
-metric_type = ["Prec", "Rec", "F1_Score", "Hit_Rate", "NDCG"]
+metric_type = ["Prec", "Rec", "F1_Score", "Hit_Rate", "NDCG" ]
 top_k = [3, 5, 10, 20]
 
 main_path = "results/metrics/test/"
 main_file = os.listdir(main_path)
+
 curr_metric = "NDCG"
 
 dataframes = []
