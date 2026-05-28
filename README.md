@@ -89,10 +89,12 @@ Downloading the datasets is necessary to run the experiments. A list with downlo
 
 - [AmazonBeauty](https://mcauleylab.ucsd.edu/public_datasets/data/amazon_2023/raw/review_categories/All_Beauty.jsonl.gz): put `All_Beauty.jsonl` file in `raw/amazon-beauty`
 - [AmazonBooks](https://www.kaggle.com/datasets/mohamedbakhet/amazon-books-reviews): download and extract in `raw/amazon-books`
+- [AmazonGames](https://mcauleylab.ucsd.edu/public_datasets/data/amazon_2023/raw/review_categories/Video_Games.jsonl.gz): put `Video_Games.jsonl` file in `raw/amazon-games`
 - [BestBuy](https://www.kaggle.com/c/acm-sf-chapter-hackathon-big/data?select=train.csv): put `train.csv` file in `raw/bestbuy`
 - [CiaoDVD](https://guoguibing.github.io/librec/datasets.html): download `ciaodvd.zip` and extract `movie-ratings.txt` file in `raw/ciaodvd`
 - [MovieLens-100K](https://grouplens.org/datasets/movielens/): download `ml-100k.zip` in the `MovieLens 100K Dataset` section and extract it in `raw/ml-100k`
 - [MovieLens-1M](https://grouplens.org/datasets/movielens/): download `ml-1m.zip` in the `MovieLens 1M Dataset` section and extract it in `raw/ml-1m`
+- [RetailRocket](https://www.kaggle.com/datasets/retailrocket/ecommerce-dataset): put `events.csv` file in `raw/RetailRocket`
 
 ## Executing the experiments
 
@@ -104,7 +106,7 @@ With the raw datasets downloaded, it's necessary to preprocess them before gener
 To do that, execute the following command:
 
 ```
-python src/scripts/preprocess.py
+python scripts/preprocess.py
 ```
 
 Executing this Python code will ask you which datasets to preprocess. Input the dataset indexes separated by a space to select the datasets.
@@ -119,10 +121,12 @@ Replace `<datasets>` with the names (or indexes) of the datasets separated by co
 
 - \[1\]: amazon-beauty
 - \[2\]: amazon-books
-- \[3\]: bestbuy
-- \[4\]: ciaodvd
-- \[5\]: ml-100k
-- \[6\]: ml-1m
+- \[3\]: amazon-games
+- \[4\]: bestbuy
+- \[5\]: ciaodvd
+- \[6\]: ml-100k
+- \[7\]: ml-1m
+- \[8\]: retailrocket-transactions
 - all (it will use all datasets)
 
 ### Run the recommendation methods
@@ -145,19 +149,22 @@ Replace `<datasets>` with the names (or indexes) of the datasets separated by co
 
 - \[1\]: amazon-beauty
 - \[2\]: amazon-books
-- \[3\]: bestbuy
-- \[4\]: ciaodvd
-- \[5\]: ml-100k
-- \[6\]: ml-1m
+- \[3\]: amazon-games
+- \[4\]: bestbuy
+- \[5\]: ciaodvd
+- \[6\]: ml-100k
+- \[7\]: ml-1m
+- \[8\]: retailrocket-transactions
 - all (it will use all datasets)
 
 Replace `<recommenders>` with the names (or indexes) of the recommenders separated by commas (","). The available recommenders to use are:
 
 - \[1\]: ALS
 - \[2\]: BPR
-- \[3\]: Item2Vec
+- \[3\]: Item2Vec_itemSim
 - \[4\]: TimeI2V_Disc_Aug
 - \[5\]: TimeI2V_Cont
+- \[6\]: Seq2Vec
 - all (it will use all recommenders)
 
 ### Generate metrics and plots
@@ -180,19 +187,22 @@ Replace `<datasets>` with the names (or indexes) of the datasets separated by co
 
 - \[1\]: amazon-beauty
 - \[2\]: amazon-books
-- \[3\]: bestbuy
-- \[4\]: ciaodvd
-- \[5\]: ml-100k
-- \[6\]: ml-1m
+- \[3\]: amazon-games
+- \[4\]: bestbuy
+- \[5\]: ciaodvd
+- \[6\]: ml-100k
+- \[7\]: ml-1m
+- \[8\]: retailrocket-transactions
 - all (it will use all datasets)
 
 Replace `<recommenders>` with the names (or indexes) of the recommenders separated by commas (","). The available recommenders to use are:
 
 - \[1\]: ALS
 - \[2\]: BPR
-- \[3\]: Item2Vec
+- \[3\]: Item2Vec_itemSim
 - \[4\]: TimeI2V_Disc_Aug
 - \[5\]: TimeI2V_Cont
+- \[6\]: Seq2Vec
 - all (it will use all recommenders)
 
 The plots will be saved in the `figures` folder.
