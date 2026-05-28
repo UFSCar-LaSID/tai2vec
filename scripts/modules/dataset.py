@@ -10,16 +10,18 @@ from scripts.modules.preprocess.ml1m import preprocess_ml1m
 from scripts.modules.preprocess.bestbuy import preprocess_bestbuy
 from scripts.modules.preprocess.ml100k import preprocess_ml100k
 from scripts.modules.preprocess.amazon_books import preprocess_amazon_books
+from scripts.modules.preprocess.amazon_games import preprocess_amazon_games
+from scripts.modules.preprocess.retailrocket import preprocess_retailrocket
 
 DATASETS_TABLE = pd.DataFrame(
     [[1,  'amazon-beauty',             'E',         1.0,    preprocess_amazon_beauty],
      [2,  'amazon-books',              'E',         1.0,    preprocess_amazon_books],
-     [3,  'amazon-games',              'E',         1.0,    None],
+     [3,  'amazon-games',              'E',         1.0,    preprocess_amazon_games],
      [4,  'bestbuy',                   'I',         1.0,    preprocess_bestbuy],
      [5,  'ciaodvd',                   'I',         1.0,    preprocess_ciaodvd],
      [6,  'ml-100k',                   'E',         1.0,    preprocess_ml100k],
      [7,  'ml-1m',                     'E',         1.0,    preprocess_ml1m],
-     [8,  'retailrocket-transactions', 'I',         0.1,    None]],
+     [8,  'retailrocket-transactions', 'I',         0.1,    preprocess_retailrocket]],
     columns=[kw.DATASET_ID, kw.DATASET_NAME, kw.DATASET_TYPE, kw.DATASET_SAMPLING_RATE, kw.DATASET_PREPROCESS_FUNCTION]
 ).set_index(kw.DATASET_ID)
 
